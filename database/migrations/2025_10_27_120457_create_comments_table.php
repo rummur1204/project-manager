@@ -11,10 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('comments', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
-        });
+     Schema::create('comments', function (Blueprint $table) {
+          $table->id();
+          $table->foreignId('user_id')->constrained()->onDelete('cascade');
+          $table->morphs('commentable'); // creates commentable_id (bigint) and commentable_type (string)
+          $table->string('title');
+          $table->text('message');
+          $table->enum('urgency', ['Normal','High','Critical'])->default('Normal');
+          $table->boolean('verified')->default(true); // optional: admin verification flag
+          $table->timestamps();
+       });
+
     }
 
     /**
