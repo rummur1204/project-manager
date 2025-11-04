@@ -27,7 +27,7 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(LoginRequest $request)
     {
         $request->authenticate();
 
@@ -35,16 +35,21 @@ class AuthenticatedSessionController extends Controller
          $user = auth()->user();
 
     
-    if ($user->hasRole('Super Admin')) {
-        return redirect()->route('admin.dashboard');
-    } elseif ($user->hasRole('Developer')) {
-        return redirect()->route('developer.dashboard');
-    } elseif ($user->hasRole('Client')) {
-        return redirect()->route('client.dashboard');
+         if ($user->hasRole('Super Admin')) {
+        return Inertia::location(route('admin.dashboard'));
+    }
+
+    if ($user->hasRole('Developer')) {
+        return Inertia::location(route('developer.dashboard'));
+    }
+
+    if ($user->hasRole('Client')) {
+        return Inertia::location(route('client.dashboard'));
     }
 
     
-    return redirect()->route('dashboard');
+    Auth::logout();
+    return Inertia::location(route('login'));
 
        
     }

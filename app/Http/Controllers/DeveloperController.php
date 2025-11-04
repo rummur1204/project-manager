@@ -10,14 +10,14 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Spatie\Permission\Models\Role;
 
-class ClientController extends Controller
+class DeveloperController extends Controller
 {
     /**
-     * Display a listing of clients.
+     * Display a listing of developers.
      */
    public function index(Request $request)
 {
-    $query = User::role('Client');
+    $query = User::role('Developer');
 
     if ($search = $request->input('q')) {
         $query->where(function ($q) use ($search) {
@@ -26,12 +26,12 @@ class ClientController extends Controller
         });
     }
 
-    $clients = $query->with('projects')->get();
+    $developers = $query->with('projects')->get();
 
     
 
-    return Inertia::render('Admin/Clients/Clients', [
-        'clients' => $clients,
+    return Inertia::render('Admin/Developers/Developers', [
+        'developers' => $developers,
         'filters' => $request->only('q'),
     ]);
 }
@@ -43,7 +43,7 @@ class ClientController extends Controller
      */
     public function create()
     {
-        return Inertia::render('Admin/Clients/CreateClient');
+        return Inertia::render('Admin/Developers/CreateDeveloper');
     }
 
     /**
@@ -63,9 +63,9 @@ class ClientController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        $user->assignRole('Client');
+        $user->assignRole('Developer');
 
-        return redirect()->route('admin.clients')->with('success', 'Client added successfully.');
+        return redirect()->route('admin.developers')->with('success', 'Developer added successfully.');
     }
 
     /**
@@ -73,13 +73,13 @@ class ClientController extends Controller
      */
     public function edit($id)
     {
-        $client = User::findOrFail($id);
+        $developer = User::findOrFail($id);
 
-        return Inertia::render('Admin/Clients/EditClient', [
-            'client' => [
-                'id' => $client->id,
-                'name' => $client->name,
-                'email' => $client->email,
+        return Inertia::render('Admin/Developers/EditDeveloper', [
+            'developer' => [
+                'id' => $developer->id,
+                'name' => $developer->name,
+                'email' => $developer->email,
             ],
         ]);
     }
@@ -89,24 +89,24 @@ class ClientController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $client = User::findOrFail($id);
+        $developer = User::findOrFail($id);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $client->id],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $developer->id],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $client->name = $validated['name'];
-        $client->email = $validated['email'];
+        $developer->name = $validated['name'];
+        $developer->email = $validated['email'];
 
         if (!empty($validated['password'])) {
-            $client->password = Hash::make($validated['password']);
+            $developer->password = Hash::make($validated['password']);
         }
 
-        $client->save();
+        $developer->save();
 
-        return redirect()->route('admin.clients')->with('success', 'Client updated successfully.');
+        return redirect()->route('admin.developers')->with('success', 'Developer updated successfully.');
     }
 
     /**
@@ -114,9 +114,10 @@ class ClientController extends Controller
      */
     public function destroy($id)
     {
-        $client = User::findOrFail($id);
-        $client->delete();
+        $developer = User::findOrFail($id);
+        $developer->delete();
 
-        return back()->with('success', 'Client deleted successfully.');
+        return back()->with('success', 'Developer deleted successfully.');
     }
 }
+

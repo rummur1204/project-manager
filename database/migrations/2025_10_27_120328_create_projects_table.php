@@ -19,6 +19,7 @@ return new class extends Migration
             $table->date('due_date')->nullable();
             $table->float('progress')->default(0);
             $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
+            $table->foreignId('client_id')->constrained('users')->onDelete('cascade');
             $table->timestamps();
         });
     }
