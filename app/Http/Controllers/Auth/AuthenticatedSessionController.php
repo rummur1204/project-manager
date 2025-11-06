@@ -32,23 +32,23 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
-         $user = auth()->user();
+    //      $user = auth()->user();
 
     
-         if ($user->hasRole('Super Admin')) {
-        return Inertia::location(route('admin.dashboard'));
-    }
+    //      if ($user->hasRole('Super Admin')) {
+    //     return Inertia::location(route('admin.dashboard'));
+    // }
 
-    if ($user->hasRole('Developer')) {
-        return Inertia::location(route('developer.dashboard'));
-    }
+    // if ($user->hasRole('Developer')) {
+    //     return Inertia::location(route('developer.dashboard'));
+    // }
 
-    if ($user->hasRole('Client')) {
-        return Inertia::location(route('client.dashboard'));
-    }
+    // if ($user->hasRole('Client')) {
+    //     return Inertia::location(route('client.dashboard'));
+    // }
 
     
-    Auth::logout();
+    // Auth::logout();
     return Inertia::location(route('login'));
 
        

@@ -2,20 +2,20 @@
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { ref } from 'vue'
 
-// const projects = ref([
-//   {
-//     id: 1,
-//     title: 'Website Redesign',
-//     description: 'Full revamp of the client landing page.',
-//     progress: 70,
-//   },
-//   {
-//     id: 2,
-//     title: 'Mobile App',
-//     description: 'Cross-platform app for e-commerce client.',
-//     progress: 45,
-//   },
-// ])
+const projects = ref([
+  {
+    id: 1,
+    title: 'Website Redesign',
+    description: 'Full revamp of the client landing page.',
+    progress: 70,
+  },
+  {
+    id: 2,
+    title: 'Mobile App',
+    description: 'Cross-platform app for e-commerce client.',
+    progress: 45,
+  },
+])
 </script>
 
 <template>

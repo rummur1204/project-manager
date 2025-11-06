@@ -20,10 +20,26 @@ class DatabaseSeeder extends Seeder
             
         ]);
 
-        // $user = App\Models\User::create([
-        //  'name' => 'Developer',
-        //  'email' => 'dev@example.com',
-        //  'password' => bcrypt('dev1234'),
-        // ]);
+        $user = User::create([
+         'name' => 'Admin',
+         'email' => 'admin@example.com',
+         'password' => bcrypt('12345678'),
+        ]);
+        $user->assignRole('Super Admin');
+
+        $user = User::create([
+         'name' => 'Developer',
+         'email' => 'dev@example.com',
+         'password' => bcrypt('dev1234'),
+        ]);
+        $user->assignRole('Developer');
+
+        $user = User::create([
+         'name' => 'Client',
+         'email' => 'cli@example.com',
+         'password' => bcrypt('cli1234'),
+        ]);
+        $user->assignRole('Client');
+        
     }
 }

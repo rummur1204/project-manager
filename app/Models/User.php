@@ -22,6 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role_id',
     ];
 
     /**
@@ -57,7 +58,7 @@ class User extends Authenticatable
          return $this->belongsToMany(Project::class, 'project_user')->withPivot('accepted')->withTimestamps();
     }
     public function tasks() {
-         return $this->belongsToMany(Task::class, 'task_user')->withPivot('assigned_by')->withTimestamps(); 
+         return $this->belongsToMany(Task::class, 'task_user')->withTimestamps(); 
     }
     public function messages() {
          return $this->hasMany(Message::class, 'sender_id'); 
