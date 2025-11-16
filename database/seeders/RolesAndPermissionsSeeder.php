@@ -9,7 +9,7 @@ class RolesAndPermissionsSeeder extends Seeder
 {
     public function run()
     {
-          $permissions = [
+          $permissions = [ 'view all projects','view own projects',
             'view projects','create projects','edit projects', 'delete projects',
             'view users','create users','edit users','delete users',
             'view roles','create roles','edit roles','delete roles',

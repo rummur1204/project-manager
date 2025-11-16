@@ -103,4 +103,28 @@ class UserController extends Controller
 
         return redirect()->route('users.index')->with('success', 'User deleted successfully.');
     }
+    public function chatList()
+{
+    $user = auth()->user();
+
+    $query = User::query()
+        ->where('id', '!=', $user->id)
+        ->select('id', 'name', 'role');
+
+    // Super admin can see all users
+    if ($user->hasRole('Super Admin')) {
+        //
+    } else {
+        // Others: cannot chat with clients
+        $query->where('role', '!=', 'Client');
+    }
+
+    return response()->json($query->get());
+}
+public function list()
+{
+    return User::select('id', 'name', 'role')->get();
+}
+
+
 }

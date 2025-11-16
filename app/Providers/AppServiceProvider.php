@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Project;
+use App\Observers\ProjectObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -42,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
             'error' => fn () => session('error'),
         ],
     ]);
+
+     Project::observe(ProjectObserver::class);
         Vite::prefetch(concurrency: 3);
     }
 }

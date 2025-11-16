@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('chats', function (Blueprint $table) {
             $table->id();
             $table->foreignId('project_id')->constrained()->onDelete('cascade');
+            $table->string('type')->default('group'); // 'group' or 'private'
+            $table->string('name')->nullable(); // for group chat titles
             $table->timestamps();
         });
     }

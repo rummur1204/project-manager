@@ -61,7 +61,7 @@ class User extends Authenticatable
          return $this->belongsToMany(Task::class, 'task_user')->withTimestamps(); 
     }
     public function messages() {
-         return $this->hasMany(Message::class, 'sender_id'); 
+         return $this->hasMany(Message::class ); 
     }
     public function chats() {
          return $this->belongsToMany(Chat::class, 'chat_user')->withTimestamps(); 

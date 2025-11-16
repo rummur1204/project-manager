@@ -18,7 +18,7 @@ return new class extends Migration
           $table->string('title');
           $table->text('message');
           $table->enum('urgency', ['Normal','High','Critical'])->default('Normal');
-          $table->boolean('verified')->default(true); // optional: admin verification flag
+        //   $table->boolean('verified')->default(true); // optional: admin verification flag
           $table->timestamps();
        });
 

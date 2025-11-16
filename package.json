@@ -21,6 +21,14 @@
         "vue": "^3.4.0"
     },
     "dependencies": {
-        "lucide-vue-next": "^0.552.0"
+        "@fullcalendar/core": "^6.1.19",
+        "@fullcalendar/daygrid": "^6.1.19",
+        "@fullcalendar/interaction": "^6.1.19",
+        "@fullcalendar/timegrid": "^6.1.19",
+        "@fullcalendar/vue3": "^6.1.19",
+        "chart.js": "^4.5.1",
+        "laravel-echo": "^2.2.6",
+        "lucide-vue-next": "^0.552.0",
+        "pusher-js": "^8.4.0"
     }
 }

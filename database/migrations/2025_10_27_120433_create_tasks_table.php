@@ -18,8 +18,8 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->enum('task_type', ['Gathering','Design', 'Development', 'Testing','Deployment','Maintenance'])->default('Design');
             $table->float('weight')->default(0); 
-            $table->enum('status', ['In Progress','Completed'])->default('In Progress');
-            $table->date('due_date')->nullable();
+            $table->enum('status', ['Pending','In Progress','Completed'])->default('Pending');
+            // $table->date('due_date')->nullable();
             $table->timestamps();
         });
 

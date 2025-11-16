@@ -1,5 +1,6 @@
 <script setup>
-import { useForm, Link } from '@inertiajs/vue3'
+import { ref, computed, watch } from 'vue'
+import { useForm } from '@inertiajs/vue3'
 import Layout from '../Dashboard/Layout.vue'
 
 const props = defineProps({
@@ -7,81 +8,264 @@ const props = defineProps({
   clients: Array,
   developers: Array,
 })
+
+// 🧾 Initialize form with project data
 const form = useForm({
   title: props.project.title || '',
   description: props.project.description || '',
   client_id: props.project.client_id || '',
-  developers: props.project.users?.map(u => u.id) || [],
-  tasks: props.project.tasks || [],
+  developer_ids: props.project.users?.map(u => u.id) || [],
+  due_date: props.project.due_date || '',
+  status: props.project.status || 'Pending',
+  tasks: props.project.tasks?.map(t => ({
+    ...t,
+    developer_ids: t.developer_ids || [],
+    weight: Number(t.weight) || 0,
+  })) || [],
 })
 
-// const form = useForm({
-//   title: props.project.title,
-//   description: props.project.description,
-//   client_id: props.project.client_id,
-//   developer_ids: props.project.developers.map(d => d.id),
-//   due_date: props.project.due_date,
-//   status: props.project.status,
-// })
+// Modal for adding/editing tasks
+const showTaskModal = ref(false)
+const editingTaskIndex = ref(null)
+const newTask = ref({
+  title: '',
+  description: '',
+  task_type: 'Gathering',
+  assign_to: [],
+  weight: 0,
+})
+
+// 🔹 Computed: available developers for project-level selects
+const availableDevelopers = (index) => {
+  return props.developers.filter(
+    d => !form.developer_ids.includes(d.id) || form.developer_ids[index] === d.id
+  )
+}
+
+// 🔹 Computed: developers available for task assignment (only project-level developers)
+const availableTaskDevelopers = computed(() =>
+  props.developers.filter(d => form.developer_ids.includes(d.id))
+)
+
+// 🔹 Normalize task weights to total 100%
+const normalizedTasks = computed(() => {
+  const total = form.tasks.reduce((sum, t) => sum + Number(t.weight || 0), 0)
+  if (total === 0) return form.tasks.map(t => ({ ...t, weight: 0 }))
+  return form.tasks.map(t => ({
+    ...t,
+    weight: Number(((t.weight / total) * 100).toFixed(2)),
+  }))
+})
+
+// 🔹 Show total weight
+const totalWeight = computed(() => {
+  return normalizedTasks.value.reduce((sum, t) => sum + Number(t.weight), 0).toFixed(2)
+})
+
+// 🔹 Watch: Remove developers from tasks if removed from project
+watch(() => form.developer_ids, (newDevs, oldDevs) => {
+  const removed = oldDevs.filter(id => !newDevs.includes(id))
+  if (!removed.length) return
+
+  form.tasks.forEach(task => {
+    task.developer_ids = task.developer_ids?.filter(id => newDevs.includes(id)) || []
+  })
+})
+
+// 🔹 Add/remove project-level developer slots
+const addDeveloper = () => form.developer_ids.push('')
+const removeDeveloper = (index) => form.developer_ids.splice(index, 1)
+
+// 🔹 Add or update task
+const addTask = () => {
+  if (!newTask.value.title.trim()) {
+    alert('Task title is required')
+    return
+  }
+
+  const taskData = {
+    title: newTask.value.title,
+    description: newTask.value.description,
+    task_type: newTask.value.task_type,
+    weight: Number(newTask.value.weight) || 0,
+    developer_ids: newTask.value.assign_to,
+  }
+
+  if (editingTaskIndex.value !== null) {
+    // Update existing task
+    form.tasks[editingTaskIndex.value] = taskData
+  } else {
+    // Add new task
+    form.tasks.push(taskData)
+  }
+
+  closeTaskModal()
+}
+
+// 🔹 Remove task
+const removeTask = (index) => form.tasks.splice(index, 1)
+
+// 🔹 Open modal for adding/editing a task
+const openTaskModal = (task = null, index = null) => {
+  if (task) {
+    editingTaskIndex.value = index
+    newTask.value = {
+      title: task.title,
+      description: task.description,
+      task_type: task.task_type,
+      assign_to: [...task.developer_ids],
+      weight: task.weight,
+    }
+  } else {
+    editingTaskIndex.value = null
+    newTask.value = { title: '', description: '', task_type: 'Gathering', assign_to: [], weight: 0 }
+  }
+  showTaskModal.value = true
+}
+
+// 🔹 Close task modal
+const closeTaskModal = () => {
+  showTaskModal.value = false
+  editingTaskIndex.value = null
+  newTask.value = { title: '', description: '', task_type: 'Gathering', assign_to: [], weight: 0 }
+}
+
+// 🔹 Submit project
+const submit = () => {
+  form.put(route('projects.update', props.project.id), {
+    data: {
+      ...form.data(),
+      tasks: normalizedTasks.value,
+    },
+    onSuccess: () => {
+      alert('Project updated successfully!')
+    },
+  })
+}
 </script>
 
 <template>
-    <Layout>
-  <div class="min-h-screen bg-gray-100 p-8">
-    <div class="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow">
-      <h2 class="text-2xl font-semibold mb-4">Edit Project</h2>
+  <Layout>
+    <div class="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <h1 class="text-2xl font-bold mb-6 dark:text-gray-100">Edit Project</h1>
 
-      <form @submit.prevent="form.put(`/projects/${props.project.id}`)">
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium">Title</label>
-            <input v-model="form.title" type="text" class="w-full border rounded-lg p-2 mt-1" required />
-          </div>
+      <!-- Title -->
+      <div class="mb-4">
+        <label class="block font-medium dark:text-gray-200">Title</label>
+        <input v-model="form.title" type="text" class="w-full border rounded p-2 dark:bg-gray-700 dark:text-gray-100" />
+      </div>
 
-          <div>
-            <label class="block text-sm font-medium">Description</label>
-            <textarea v-model="form.description" class="w-full border rounded-lg p-2 mt-1" rows="3"></textarea>
-          </div>
+      <!-- Description -->
+      <div class="mb-4">
+        <label class="block font-medium dark:text-gray-200">Description</label>
+        <textarea v-model="form.description" class="w-full border rounded p-2 dark:bg-gray-700 dark:text-gray-100"></textarea>
+      </div>
 
-          <div>
-            <label class="block text-sm font-medium">Client</label>
-            <select v-model="form.client_id" class="w-full border rounded-lg p-2 mt-1" required>
-              <option value="">Select client</option>
-              <option v-for="c in props.clients" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
-          </div>
+      <!-- Client -->
+      <div class="mb-4">
+        <label class="block font-medium dark:text-gray-200">Client</label>
+        <select v-model="form.client_id" class="w-full border rounded p-2 dark:bg-gray-700 dark:text-gray-100">
+          <option disabled value="">Select a client</option>
+          <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </div>
 
-          <div>
-            <label class="block text-sm font-medium">Developers</label>
-            <div class="flex flex-wrap gap-2 mt-2">
-              <label v-for="d in props.developers" :key="d.id" class="flex items-center gap-2">
-                <input type="checkbox" :value="d.id" v-model="form.developer_ids" />
-                {{ d.name }}
-              </label>
+      <!-- Project Developers -->
+      <div class="mb-4">
+        <label class="block font-medium dark:text-gray-200 mb-1">Developers</label>
+        <div v-for="(id, index) in form.developer_ids" :key="index" class="flex gap-2 mb-2">
+          <select v-model="form.developer_ids[index]" class="w-full border rounded p-2 dark:bg-gray-700 dark:text-gray-100">
+            <option disabled value="">Select a developer</option>
+            <option v-for="d in availableDevelopers(index)" :key="d.id" :value="d.id">{{ d.name }}</option>
+          </select>
+          <button @click="removeDeveloper(index)" class="text-red-500 hover:underline">Remove</button>
+        </div>
+        <button @click="addDeveloper" class="text-blue-600 dark:text-blue-400 hover:underline">+ Add Developer</button>
+      </div>
+
+      <!-- Due Date -->
+      <div class="mb-4">
+        <label class="block font-medium dark:text-gray-200">Due Date</label>
+        <input type="date" v-model="form.due_date" class="w-full border rounded p-2 dark:bg-gray-700 dark:text-gray-100" />
+      </div>
+
+      <!-- Tasks -->
+      <div class="mb-4">
+        <label class="block font-medium dark:text-gray-200 mb-2">Tasks</label>
+        <div v-if="form.tasks.length" class="space-y-2 mb-3">
+          <div v-for="(t, i) in normalizedTasks" :key="i" class="border rounded p-2 bg-gray-50 dark:bg-gray-700">
+            <div class="flex justify-between items-center">
+              <span class="dark:text-gray-200">{{ t.title }} ({{ t.task_type }}) - Weight: {{ t.weight }}%</span>
+              <div class="flex gap-2">
+                <button @click="openTaskModal(form.tasks[i], i)" class="text-blue-500 text-sm">Edit</button>
+                <button @click="removeTask(i)" class="text-red-500 text-sm">Remove</button>
+              </div>
+            </div>
+            <div class="mt-1 text-sm dark:text-gray-300">
+              Assigned Developers:
+              <span v-if="!t.developer_ids.length">None</span>
+              <span v-for="devId in t.developer_ids" :key="devId">
+                {{ props.developers.find(d => d.id === devId)?.name }}
+              </span>
             </div>
           </div>
+        </div>
 
-          <div>
-            <label class="block text-sm font-medium">Status</label>
-            <select v-model="form.status" class="w-full border rounded-lg p-2 mt-1">
-              <option>Pending</option>
-              <option>In Progress</option>
-              <option>Completed</option>
-            </select>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+          Total (Auto Calculated): <strong>{{ totalWeight }}%</strong>
+        </p>
+
+        <button type="button" class="text-blue-600 dark:text-blue-400 hover:underline" @click="openTaskModal()">
+          + Add Task
+        </button>
+      </div>
+
+      <!-- Task Modal -->
+      <div v-if="showTaskModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
+          <h2 class="text-lg font-semibold mb-3 dark:text-gray-100">{{ editingTaskIndex !== null ? 'Edit Task' : 'Add Task' }}</h2>
+
+          <label class="block font-medium dark:text-gray-200">Title</label>
+          <input v-model="newTask.title" type="text" class="w-full border rounded p-2 mb-3 dark:bg-gray-700 dark:text-gray-100" />
+
+          <label class="block font-medium dark:text-gray-200">Description</label>
+          <textarea v-model="newTask.description" class="w-full border rounded p-2 mb-3 dark:bg-gray-700 dark:text-gray-100"></textarea>
+
+          <label class="block font-medium dark:text-gray-200">Task Type</label>
+          <select v-model="newTask.task_type" class="w-full border rounded p-2 mb-3 dark:bg-gray-700 dark:text-gray-100">
+            <option value="Gathering">Gathering</option>
+            <option value="Design">Design</option>
+            <option value="Development">Development</option>
+            <option value="Testing">Testing</option>
+            <option value="Deployment">Deployment</option>
+            <option value="Maintenance">Maintenance</option>
+          </select>
+
+          <label class="block font-medium dark:text-gray-200">Weight (%)</label>
+          <input v-model.number="newTask.weight" type="number" min="0" max="100" class="w-full border rounded p-2 mb-3 dark:bg-gray-700 dark:text-gray-100" />
+
+          <label class="block font-medium dark:text-gray-200 mb-2">Assign Developers</label>
+          <div v-if="availableTaskDevelopers.length" class="space-y-1 mb-4">
+            <div v-for="dev in availableTaskDevelopers" :key="dev.id" class="flex items-center gap-2">
+              <input type="checkbox" :value="dev.id" v-model="newTask.assign_to" class="rounded" />
+              <span class="dark:text-gray-300">{{ dev.name }}</span>
+            </div>
           </div>
+          <p v-else class="text-sm text-gray-500 dark:text-gray-400 mb-3">No developers selected for this project yet.</p>
 
-          <div>
-            <label class="block text-sm font-medium">Due Date</label>
-            <input type="date" v-model="form.due_date" class="w-full border rounded-lg p-2 mt-1" required />
-          </div>
-
-          <div class="flex justify-end mt-6">
-            <Link href="/projects" class="px-4 py-2 bg-gray-200 rounded-lg mr-2">Cancel</Link>
-            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Update</button>
+          <div class="flex justify-end gap-2 mt-4">
+            <button @click="closeTaskModal" class="text-gray-500 dark:text-gray-300">Cancel</button>
+            <button @click="addTask" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Save Task</button>
           </div>
         </div>
-      </form>
+      </div>
+
+      <!-- Submit -->
+      <div class="mt-6">
+        <button @click="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded" :disabled="form.processing">
+          Update Project
+        </button>
+      </div>
     </div>
-  </div>
   </Layout>
 </template>

@@ -20,15 +20,26 @@ class Project extends Model
     ];
 
     
-    
+    public function creator()
+{
+    return $this->belongsTo(User::class, 'created_by');
+}
+
     public function client()
     {
         return $this->belongsTo(User::class, 'client_id');
     }
+    public function developers()
+{
+    return $this->belongsToMany(User::class, 'project_user')
+        ->withPivot('accepted')
+        ->withTimestamps();
+}
+
 
      public function users()
     {
-        return $this->belongsToMany(User::class, 'project_user')->withTimestamps();
+        return $this->belongsToMany(User::class, 'project_user') ->withPivot('accepted')->withTimestamps();
     }
 
     public function tasks()
@@ -36,8 +47,14 @@ class Project extends Model
         return $this->hasMany(Task::class);
     }
 
-    public function comments()
-    {
-        return $this->morphMany(Comment::class, 'commentable');
-    }
+   public function comments()
+{
+    return $this->hasMany(ProjectComment::class);
+}
+
+    public function chat()
+{
+    return $this->hasOne(Chat::class);
+}
+
 }
