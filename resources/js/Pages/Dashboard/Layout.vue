@@ -56,25 +56,18 @@ const openSidebar = ref(true)
         <Link href="/calendar" class="flex items-center gap-2 p-2 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900">
           <CalendarDays class="w-5 h-5" /> Calendar
         </Link>
-        <Link href="/activity" class="flex items-center gap-2 p-2 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900">
-          <ActivitySquare class="w-5 h-5" /> Activity Log
+        <Link href="/activities" class="flex items-center gap-2 p-2 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900">
+          <ActivitySquare class="w-5 h-5" /> Activity 
         </Link>
 
-        <!-- Settings Dropdown (Permission-Controlled) -->
-       
-          <details v-if="can['view users'] || can['view roles']" class="group">
-            <summary class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900">
-              <Settings class="w-5 h-5" /> Settings
-            </summary>
-            <div class="ml-6 mt-1 space-y-1">
-              <Link v-if="can['view users']" href="/admin/users" class="flex items-center gap-2 p-2 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900">
-                <Users class="w-5 h-5" /> Users
-              </Link>
-              <Link v-if="can['view roles']" href="/admin/roles" class="flex items-center gap-2 p-2 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900">
-                <Shield class="w-5 h-5" /> Roles
-              </Link>
-            </div>
-          </details>
+        <Link 
+  v-if="can['view users'] || can['view roles']"
+  href="/settings"
+  class="flex items-center gap-2 p-2 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900"
+>
+  <Settings class="w-5 h-5" /> Settings
+</Link>
+
        
 
         <Link href="/profile" class="flex items-center gap-2 p-2 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900">

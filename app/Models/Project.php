@@ -57,4 +57,9 @@ class Project extends Model
     return $this->hasOne(Chat::class);
 }
 
+public function calendarEvents()
+{
+    return $this->hasMany(CalendarEvent::class);
+}
+
 }

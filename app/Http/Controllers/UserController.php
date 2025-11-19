@@ -11,28 +11,31 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
     // 🧭 List all users
-    public function index()
-    {
-        $users = User::with('roles')->get();
+ public function index()
+{ 
+    $users = User::with('roles')->get()->map(function ($user) {
+        return [
+            'id'    => $user->id,
+            'name'  => $user->name,
+            'email' => $user->email,
+            'role'  => $user->getRoleNames()->implode(', ') ?: '—',
+        ];
+    });
 
-        return Inertia::render('Admin/Users/Index', [
-            'users' => $users->map(function ($user) {
-                return [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $user->roles->pluck('name')->first() ?? '—',
-                ];
-            }),
-        ]);
-    }
+    return inertia('Settings/Users/Index', [
+        'users' => $users,
+        'tab' => 'users'
+    ]);
+}
+
+
 
     // 🆕 Create user form
     public function create()
     {
         $roles = Role::pluck('name');
 
-        return Inertia::render('Admin/Users/Create', [
+        return Inertia::render('Settings/Users/Create', [
             'roles' => $roles,
         ]);
     }
@@ -54,8 +57,9 @@ class UserController extends Controller
         ]);
 
         $user->assignRole($data['role']);
+return redirect()->route('settings.index', ['tab' => 'users'])
+    ->with('success', 'User created successfully');
 
-        return redirect()->route('users.index')->with('success', 'User created successfully.');
     }
 
     // ✏️ Edit user form
@@ -64,7 +68,7 @@ class UserController extends Controller
         $roles = Role::pluck('name');
         $user->load('roles');
 
-        return Inertia::render('Admin/Users/Edit', [
+        return Inertia::render('Settings/Users/Edit', [
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -93,7 +97,9 @@ class UserController extends Controller
 
         $user->syncRoles([$data['role']]);
 
-        return redirect()->route('users.index')->with('success', 'User updated successfully.');
+        return redirect()->route('settings.index', ['tab' => 'users'])
+    ->with('success', 'User updated successfully');
+
     }
 
     // 🗑️ Delete user
@@ -101,30 +107,12 @@ class UserController extends Controller
     {
         $user->delete();
 
-        return redirect()->route('users.index')->with('success', 'User deleted successfully.');
+return redirect()->route('settings.index', ['tab' => 'users'])
+    ->with('success', 'User deleted successfully');
     }
-    public function chatList()
-{
-    $user = auth()->user();
+    
 
-    $query = User::query()
-        ->where('id', '!=', $user->id)
-        ->select('id', 'name', 'role');
 
-    // Super admin can see all users
-    if ($user->hasRole('Super Admin')) {
-        //
-    } else {
-        // Others: cannot chat with clients
-        $query->where('role', '!=', 'Client');
-    }
-
-    return response()->json($query->get());
-}
-public function list()
-{
-    return User::select('id', 'name', 'role')->get();
-}
 
 
 }

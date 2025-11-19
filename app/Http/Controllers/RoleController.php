@@ -13,7 +13,7 @@ class RoleController extends Controller
     {
         $roles = Role::with('permissions')->get();
 
-        return Inertia::render('Admin/Roles/Index', [
+        return Inertia::render('Settings/Roles/Index', [
             'roles' => $roles,
         ]);
     }
@@ -21,7 +21,7 @@ class RoleController extends Controller
     public function create()
     {
         $permissions = Permission::all();
-        return Inertia::render('Admin/Roles/Create', [
+        return Inertia::render('Settings/Roles/Create', [
             'permissions' => $permissions,
         ]);
     }
@@ -36,14 +36,14 @@ class RoleController extends Controller
         $role = Role::create(['name' => $validated['name']]);
         $role->syncPermissions($validated['permissions'] ?? []);
 
-        return redirect()->route('roles.index')->with('success', 'Role created successfully!');
+        return redirect()->route('settings.index' , ['tab' => 'roles'])->with('success', 'Role created successfully!');
     }
 
     public function edit(Role $role)
     {
         $permissions = Permission::all();
 
-        return Inertia::render('Admin/Roles/Edit', [
+        return Inertia::render('Settings/Roles/Edit', [
             'role' => $role->load('permissions'),
             'permissions' => $permissions,
         ]);
@@ -59,12 +59,12 @@ class RoleController extends Controller
         $role->update(['name' => $validated['name']]);
         $role->syncPermissions($validated['permissions'] ?? []);
 
-        return redirect()->route('roles.index')->with('success', 'Role updated successfully!');
+        return redirect()->route('settings.index')->with('success', 'Role updated successfully!');
     }
 
     public function destroy(Role $role)
     {
         $role->delete();
-        return redirect()->route('roles.index')->with('success', 'Role deleted successfully!');
+        return redirect()->route('settings.index' , ['tab' => 'roles'])->with('success', 'Role deleted successfully!');
     }
 }

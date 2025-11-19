@@ -1,16 +1,20 @@
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3'
 import Layout from '@/Pages/Dashboard/Layout.vue'
+import { ArrowLeft } from 'lucide-vue-next'
 
 const props = defineProps({ permissions: Array })
 const form = useForm({ name: '', permissions: [] })
-const submit = () => form.post('/admin/roles')
+const submit = () => form.post('/settings/roles')
 </script>
 
 <template>
   <Layout>
     <main class="p-6 overflow-y-auto flex-1">
       <h1 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Create Role</h1>
+      <button @click="router.visit('/settings')" class="flex items-center gap-1 text-gray-600 dark:text-gray-300 hover:text-blue-600">
+          <ArrowLeft class="w-5 h-5" /> Back
+        </button>
 
       <form @submit.prevent="submit" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-6 transition-colors max-w-lg">
         <div>
@@ -31,7 +35,7 @@ const submit = () => form.post('/admin/roles')
         </div>
 
         <div class="flex items-center justify-end space-x-4">
-          <Link href="/admin/roles" class="text-gray-600 dark:text-gray-300 hover:underline">Cancel</Link>
+          <Link href="/settings/roles" class="text-gray-600 dark:text-gray-300 hover:underline">Cancel</Link>
           <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">Save Role</button>
         </div>
       </form>

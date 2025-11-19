@@ -1,174 +1,205 @@
 <script setup>
-import { ref, watch } from 'vue'
-import { usePage, router } from '@inertiajs/vue3'
+import { ref, onMounted, nextTick } from 'vue'
+import { usePage, router, Head } from '@inertiajs/vue3'
 import Layout from '../Dashboard/Layout.vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 
-
-
-
+// ─────────────── Props from Laravel ───────────────
 const { props } = usePage()
-const events = ref(props.events || [])
-const projects = ref(props.projects || [])
+const events = ref(props.events ?? [])
+const projects = props.projects ?? []
 
-// Create form
-const newEvent = ref({
+// ─────────────── Calendar ref ───────────────
+const calendarRef = ref(null)
+
+// ─────────────── Modal state ───────────────
+const showModal = ref(false)
+const form = ref({
   title: '',
   description: '',
   start_date: '',
   end_date: '',
-  project_id: null,
-  task_id: null,
+  project_id: '',
+  task_id: '',
+  type: 'normal',
+  color: '#3788d8'
 })
 
-// Edit modal
-const showEditModal = ref(false)
-const editEvent = ref({
-  event_id: null,
-  title: '',
-  description: '',
-  start_date: '',
-  end_date: '',
-  project_id: null,
-  task_id: null,
-})
+// ─────────────── Project → Task logic ───────────────
+const projectTasks = ref([])
 
-// When backend props change (Inertia refresh), update local events
-watch(() => props.events, (v) => { events.value = v || [] })
-
-// Calendar handlers
-const handleDateClick = (info) => {
-  // optional: quick create with clicked date
-  newEvent.value.start_date = info.dateStr
-  newEvent.value.end_date = info.dateStr
-}
-
-const handleEventClick = (info) => {
-  const ev = info.event
-  const extended = ev.extendedProps || {}
-  // only open edit for manual events (type === 'event') — project events are read-only
-  if (extended.type === 'event') {
-    editEvent.value = {
-      event_id: extended.event_id,
-      title: ev.title,
-      description: extended.description || '',
-      start_date: ev.startStr || ev.start,
-      end_date: ev.endStr || ev.end,
-      project_id: extended.project_id || null,
-      task_id: extended.task_id || null,
-    }
-    showEditModal.value = true
+const loadTasks = async (projectId) => {
+  if (!projectId) {
+    projectTasks.value = []
+    form.value.task_id = ''
+    return
+  }
+  try {
+    const response = await axios.get(`/api/projects/${projectId}/tasks`)
+    projectTasks.value = response.data
+  } catch (e) {
+    console.log('Error fetching tasks:', e)
   }
 }
 
-// create new event
-const createEvent = () => {
-  router.post(route('calendar.store'), newEvent.value, {
-    preserveScroll: true,
-    onSuccess: () => {
-      Object.assign(newEvent.value, {
-        title: '',
-        description: '',
-        start_date: '',
-        end_date: '',
-        project_id: null,
+// ─────────────── Event handlers ───────────────
+const onDateClick = (info) => {
+  form.value.start_date = info.dateStr
+  form.value.end_date = info.dateStr
+  showModal.value = true
+}
+
+const onEventDrop = (info) => {
+  router.patch(`/calendar/${info.event.id}`, {
+    start_date: info.event.startStr,
+    end_date: info.event.endStr ?? info.event.startStr
+  })
+}
+
+const onEventResize = (info) => {
+  router.patch(`/calendar/${info.event.id}`, {
+    start_date: info.event.startStr,
+    end_date: info.event.endStr ?? info.event.startStr
+  })
+}
+
+// ─────────────── Submit event ───────────────
+const submitEvent = () => {
+  router.post('/calendar', form.value, {
+    onSuccess: (page) => {
+      showModal.value = false
+      resetForm()
+      nextTick(() => {
+        // Update calendar events without full reload
+        events.value = page.props.events ?? events.value
       })
     }
   })
 }
 
-
-
-// save edit
-const saveEvent = () => {
-  // event id is the DB id stored in editEvent.event_id
-  router.put(`/calendar/${editEvent.value.event_id}`, {
-    title: editEvent.value.title,
-    description: editEvent.value.description,
-    start_date: editEvent.value.start_date,
-    end_date: editEvent.value.end_date,
-    project_id: editEvent.value.project_id,
-    task_id: editEvent.value.task_id,
-  }, {
-    onSuccess: () => { showEditModal.value = false }
-  })
-}
-
-// delete event
-const deleteEvent = () => {
-  router.delete(`/calendar/${editEvent.value.event_id}`, {
-    onSuccess: () => { showEditModal.value = false }
-  })
+const resetForm = () => {
+  form.value = {
+    title: '',
+    description: '',
+    start_date: '',
+    end_date: '',
+    project_id: '',
+    task_id: '',
+    type: 'normal',
+    color: '#3788d8'
+  }
+  projectTasks.value = []
 }
 </script>
 
 <template>
   <Layout>
-    <h1 class="text-2xl font-semibold mb-4">Calendar</h1>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <!-- Calendar -->
-      <div class="md:col-span-2 bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
-     <FullCalendar
-  :plugins="[dayGridPlugin, interactionPlugin]"
-  initial-view="dayGridMonth"
-  :events="events"
-  @dateClick="handleDateClick"
-  @eventClick="handleEventClick"
-  :height="700"
-/>
+  <div class="p-6">
+    <!-- Calendar Container -->
+    <div class="bg-white shadow rounded p-4">
+      <FullCalendar
+        ref="calendarRef"
+        :plugins="[dayGridPlugin, interactionPlugin]"
+        initial-view="dayGridMonth"
+        :events="events"
+        @dateClick="onDateClick"
+        @eventDrop="onEventDrop"
+        @eventResize="onEventResize"
+        editable
+        droppable
+        selectable
+        height="600"
+      />
+    </div>
+  </div>
 
+  <!-- ─────────────── Event Modal ─────────────── -->
+  <div
+    v-if="showModal"
+    class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+  >
+    <div class="bg-white w-full max-w-lg rounded shadow p-6">
+      <h2 class="text-lg font-bold mb-4">Create Event</h2>
 
+      <!-- TITLE -->
+      <label class="block mb-2">Title</label>
+      <input v-model="form.title" class="w-full border rounded p-2 mb-3" />
+
+      <!-- DESCRIPTION -->
+      <label class="block mb-2">Description</label>
+      <textarea v-model="form.description" class="w-full border rounded p-2 mb-3"></textarea>
+
+      <!-- DATE RANGE -->
+      <div class="flex gap-2">
+        <div class="flex-1">
+          <label class="block mb-2">Start</label>
+          <input type="date" v-model="form.start_date" class="w-full border rounded p-2" />
+        </div>
+        <div class="flex-1">
+          <label class="block mb-2">End</label>
+          <input type="date" v-model="form.end_date" class="w-full border rounded p-2" />
+        </div>
       </div>
 
-      <!-- Right column: Create form + projects quick list -->
-      <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow space-y-4">
-        <h2 class="font-semibold">Add Event</h2>
+      <!-- TYPE -->
+      <label class="block mt-4 mb-2">Type</label>
+      <select v-model="form.type" class="w-full border rounded p-2 mb-3">
+        <option value="normal">Normal Event</option>
+        <option value="project_deadline">Project Deadline</option>
+        <option value="task_deadline">Task Deadline</option>
+      </select>
 
-        <input v-model="newEvent.title" type="text" placeholder="Title" class="w-full border rounded p-2" />
-        <textarea v-model="newEvent.description" placeholder="Description" class="w-full border rounded p-2"></textarea>
-
-        <div class="grid grid-cols-2 gap-2">
-          <input v-model="newEvent.start_date" type="date" class="border rounded p-2" />
-          <input v-model="newEvent.end_date" type="date" class="border rounded p-2" />
-        </div>
-
-        <select v-model="newEvent.project_id" class="w-full border rounded p-2">
-          <option :value="null">No project</option>
-          <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.title }}</option>
+      <!-- PROJECT SELECTION -->
+      <div v-if="form.type !== 'normal'">
+        <label class="block mb-2">Project</label>
+        <select
+          v-model="form.project_id"
+          @change="loadTasks(form.project_id)"
+          class="w-full border rounded p-2 mb-3"
+        >
+          <option value="">Select Project</option>
+          <option
+            v-for="p in projects"
+            :key="p.id"
+            :value="p.id"
+          >
+            {{ p.name }}
+          </option>
         </select>
+      </div>
 
-        <div class="flex justify-end">
-          <button @click="createEvent" class="bg-indigo-600 text-white px-3 py-1.5 rounded">Create</button>
-        </div>
+      <!-- TASK SELECTION -->
+      <div v-if="form.type === 'task_deadline'">
+        <label class="block mb-2">Task</label>
+        <select v-model="form.task_id" class="w-full border rounded p-2 mb-3">
+          <option value="">Select Task</option>
+          <option
+            v-for="t in projectTasks"
+            :key="t.id"
+            :value="t.id"
+          >
+            {{ t.title }}
+          </option>
+        </select>
+      </div>
+
+      <!-- COLOR -->
+      <label class="block mb-2">Color</label>
+      <input type="color" v-model="form.color" class="w-full border rounded p-2 mb-4" />
+
+      <!-- BUTTONS -->
+      <div class="flex justify-end gap-2">
+        <button class="px-4 py-2 bg-gray-300 rounded" @click="showModal = false">
+          Cancel
+        </button>
+        <button class="px-4 py-2 bg-blue-600 text-white rounded" @click="submitEvent">
+          Save
+        </button>
       </div>
     </div>
-
-    <!-- Edit modal -->
-    <div v-if="showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-gray-800 p-6 rounded-lg w-96">
-        <h2 class="text-lg font-semibold mb-3">Edit Event</h2>
-
-        <input v-model="editEvent.title" class="w-full border rounded p-2 mb-2" />
-        <textarea v-model="editEvent.description" class="w-full border rounded p-2 mb-2"></textarea>
-        <div class="grid grid-cols-2 gap-2 mb-2">
-          <input v-model="editEvent.start_date" type="date" class="border rounded p-2" />
-          <input v-model="editEvent.end_date" type="date" class="border rounded p-2" />
-        </div>
-
-        <select v-model="editEvent.project_id" class="w-full border rounded p-2 mb-3">
-          <option :value="null">No project</option>
-          <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.title }}</option>
-        </select>
-
-        <div class="flex justify-end gap-2">
-          <button @click="showEditModal = false" class="px-3 py-1 bg-gray-300 rounded">Cancel</button>
-          <button @click="deleteEvent" class="px-3 py-1 bg-red-600 text-white rounded">Delete</button>
-          <button @click="saveEvent" class="px-3 py-1 bg-indigo-600 text-white rounded">Save</button>
-        </div>
-      </div>
-    </div>
-  </Layout>
+  </div>
+</Layout>
 </template>

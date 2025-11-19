@@ -4,7 +4,7 @@ import Layout from '@/Pages/Dashboard/Layout.vue'
 
 const props = defineProps({ role: Object, permissions: Array })
 const form = useForm({ name: props.role.name, permissions: props.role.permissions.map(p => p.name) })
-const submit = () => form.put(`/admin/roles/${props.role.id}`)
+const submit = () => form.put(`/settings/roles/${props.role.id}`)
 </script>
 
 <template>
@@ -31,7 +31,7 @@ const submit = () => form.put(`/admin/roles/${props.role.id}`)
         </div>
 
         <div class="flex items-center justify-end space-x-4">
-          <Link href="/admin/roles" class="text-gray-600 dark:text-gray-300 hover:underline">Cancel</Link>
+          <Link href="/settings/roles" class="text-gray-600 dark:text-gray-300 hover:underline">Cancel</Link>
           <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">Update Role</button>
         </div>
       </form>

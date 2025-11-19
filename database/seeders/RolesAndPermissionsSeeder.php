@@ -16,6 +16,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view tasks','create tasks','edit tasks','delete tasks',
             'view comments','create comments','edit comments','delete comments',
             'view chats','create chats','edit chats','delete chats',
+            'view activity types','create activity types ','edit activity types','delete activity types'
         ];
 
         foreach ($permissions as $permission) {
@@ -28,8 +29,8 @@ class RolesAndPermissionsSeeder extends Seeder
         $client     = Role::firstOrCreate(['name' => 'Client']);
 
         $superAdmin->syncPermissions(Permission::all());
-        $developer->syncPermissions(['view projects', 'view tasks']);
-        $client->syncPermissions(['view projects']);
+        $developer->syncPermissions(['view projects','view own projects', 'view tasks']);
+        $client->syncPermissions(['view projects','view own projects']);
 
        
 

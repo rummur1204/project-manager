@@ -25,4 +25,9 @@ class Task extends Model
     return $this->hasMany(TaskComment::class);
 }
 
+public function calendarEvents()
+{
+    return $this->hasMany(CalendarEvent::class);
+}
+
 }

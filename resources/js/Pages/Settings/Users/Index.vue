@@ -1,12 +1,14 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { usePage, router } from '@inertiajs/vue3'
-import Layout from '@/Pages/Dashboard/Layout.vue'
+// import Layout from '@/Pages/Dashboard/Layout.vue'
 import { PlusCircle, Edit, Trash2 } from 'lucide-vue-next'
 
 const page = usePage()
 const users = computed(() => page.props.users || [])
 const search = ref('')
+
+
 
 const filteredUsers = computed(() => {
   if (!search.value) return users.value
@@ -24,13 +26,14 @@ const logout = () => router.post('/logout')
   <Layout>
     <main class="p-6 overflow-y-auto flex-1">
       <div class="flex justify-between items-center mb-4">
-        <h1 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Users</h1>
+        <!-- <h1 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Users</h1> -->
         <button
-          @click="router.visit('/admin/users/create')"
-          class="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
-        >
-          <PlusCircle class="w-5 h-5" /> New User
-        </button>
+  @click="router.visit('/settings/users/create?tab=users')"
+  class="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
+>
+  <PlusCircle class="w-5 h-5" /> New User
+</button>
+
       </div>
 
       <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow transition-colors">
@@ -53,14 +56,20 @@ const logout = () => router.post('/logout')
               <td class="px-4 py-2 text-gray-800 dark:text-gray-100">{{ user.email }}</td>
               <td class="px-4 py-2 text-gray-800 dark:text-gray-100">{{ user.role }}</td>
               <td class="px-4 py-2 space-x-2">
+               <button
+  @click="router.visit(`/settings/users/${user.id}/edit?tab=users`)"
+  class="text-blue-600 hover:underline"
+>
+  <Edit class="w-4 h-4" />
+</button>
+
                 <button
-                  @click="router.visit(`/admin/users/${user.id}/edit`)"
-                  class="text-blue-600 hover:underline"
-                ><Edit class="w-4 h-4" /></button>
-                <button
-                  @click="router.delete(`/admin/users/${user.id}`)"
-                  class="text-red-600 hover:underline"
-                ><Trash2 class="w-4 h-4" /></button>
+  @click="router.delete(`/settings/users/${user.id}`, { preserveScroll: true, onSuccess: () => router.visit('/settings?tab=users') })"
+  class="text-red-600 hover:underline"
+>
+  <Trash2 class="w-4 h-4" />
+</button>
+
               </td>
             </tr>
           </tbody>

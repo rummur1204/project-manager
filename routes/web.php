@@ -13,7 +13,10 @@ use App\Http\Controllers\ProjectCommentController;
 use App\Http\Controllers\TaskCommentController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\MessageController;
-use App\Http\Controllers\EventController;
+use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\ActivityTypeController;
+use App\Http\Controllers\SettingsController;
 
 // Redirect root to login
 Route::get('/', function () {
@@ -53,10 +56,13 @@ Route::middleware(['auth'])->get('/chat/list', [ChatController::class, 'list']);
     ->name('tasks.comments.store');
 
 
-
-    Route::prefix('admin')->group(function () {
+Route::get('/settings/{tab?}', [SettingsController::class, 'index'])
+        ->name('settings.index');
+    Route::prefix('settings')->group(function () {
         Route::resource('users', UserController::class);
         Route::resource('roles', RoleController::class);
+        Route::resource('activity-types', ActivityTypeController::class)
+        ->except(['show']);
     });
  Route::get('/chat/list', [ChatController::class, 'list']);
     // Route::get('/chats/{chat}', [ChatController::class, 'show'])->name('chats.show');
@@ -70,10 +76,41 @@ Route::middleware(['auth'])->get('/chat/list', [ChatController::class, 'list']);
     // Route::post('/chats/{chat}/messages', [MessageController::class, 'store'])->name('chats.messages.store');
     // Route::get('/users/list', [UserController::class, 'list'])->middleware('auth');
 
-  Route::get('/calendar', [EventController::class, 'index'])->name('calendar.index');
-    Route::post('/calendar', [EventController::class, 'store'])->name('calendar.store');
-    Route::put('/calendar/{event}', [EventController::class, 'update'])->name('calendar.update');
-    Route::delete('/calendar/{event}', [EventController::class, 'destroy'])->name('calendar.destroy');
+  Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
+    Route::post('/calendar', [CalendarController::class, 'store'])->name('calendar.store');
+    Route::put('/calendar/{event}', [CalendarController::class, 'update'])->name('calendar.update');
+    Route::delete('/calendar/{event}', [CalendarController::class, 'destroy'])->name('calendar.destroy');
+
+    // Route::get('/settings/activity-types', 
+    //     [ActivityTypeController::class, 'index'])
+    //     ->middleware('permission:view activity types')
+    //     ->name('activity-types.index');
+
+    // Route::post('/settings/activity-types', 
+    //     [ActivityTypeController::class, 'store'])
+    //     ->middleware('permission:create activity types')
+    //     ->name('activity-types.store');
+
+    // Route::put('/settings/activity-types/{activityType}', 
+    //     [ActivityTypeController::class, 'update'])
+    //     ->middleware('permission:edit activity types')
+    //     ->name('activity-types.update');
+
+    // Route::delete('/settings/activity-types/{activityType}', 
+    //     [ActivityTypeController::class, 'destroy'])
+    //     ->middleware('permission:delete activity types')
+    //     ->name('activity-types.destroy');
+
+
+      // Activities
+Route::get('/activities', [ActivityController::class, 'index'])->name('activities.index');
+Route::get('/activities/create', [ActivityController::class, 'create'])->name('activities.create');
+Route::post('/activities', [ActivityController::class, 'store'])->name('activities.store');
+
+Route::get('/activities/{activity}/edit', [ActivityController::class, 'edit'])->name('activities.edit');
+Route::put('/activities/{activity}', [ActivityController::class, 'update'])->name('activities.update');
+Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->name('activities.destroy');
+
 
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

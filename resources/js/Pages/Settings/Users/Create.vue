@@ -18,13 +18,13 @@ const form = useForm({
     <main class="p-6 overflow-y-auto flex-1">
       <div class="flex justify-between items-center mb-4">
         <h1 class="text-xl font-semibold text-gray-800 dark:text-gray-100">Add New User</h1>
-        <button @click="router.visit('/admin/users')" class="flex items-center gap-1 text-gray-600 dark:text-gray-300 hover:text-blue-600">
+        <button @click="router.visit('/settings')" class="flex items-center gap-1 text-gray-600 dark:text-gray-300 hover:text-blue-600">
           <ArrowLeft class="w-5 h-5" /> Back
         </button>
       </div>
 
       <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md max-w-lg mx-auto transition-colors">
-        <form @submit.prevent="form.post('/admin/users')">
+        <form @submit.prevent="form.post('/settings/users')">
           <div class="space-y-4">
             <div>
               <label class="block text-gray-700 dark:text-gray-300 font-medium">Name</label>

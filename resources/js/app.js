@@ -5,6 +5,11 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import vSelect from "vue-select"
+import "vue-select/dist/vue-select.css"
+
+// app.component("v-select", vSelect)
+
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
