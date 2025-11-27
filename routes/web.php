@@ -13,7 +13,7 @@ use App\Http\Controllers\ProjectCommentController;
 use App\Http\Controllers\TaskCommentController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\MessageController;
-use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\ActivityTypeController;
 use App\Http\Controllers\SettingsController;
@@ -38,14 +38,18 @@ Route::middleware(['auth'])->get('/chat/list', [ChatController::class, 'list']);
       Route::post('/projects/{project}/accept', [ProjectController::class, 'accept'])->name('projects.accept');
     Route::post('/projects/{project}/decline', [ProjectController::class, 'decline'])->name('projects.decline');
 
+
      Route::get('/projects/{project}/tasks', [TaskController::class, 'index'])->name('tasks.index');
     Route::post('/projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');
+    Route::put('projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::delete('/projects/{project}/tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
     Route::patch('/projects/{project}/tasks/{task}/toggle', [TaskController::class, 'toggleStatus'])->name('tasks.toggle');
-
+    // In web.php
+// Route::put('/projects/{project}/tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('projects.tasks.bulk-update');
+// Route::post('/projects/{project}/tasks', [ProjectController::class, 'storeTasks'])->name('projects.tasks.store');
     // Comments
     // Route::post('/tasks/{task}/comments', [CommentController::class, 'storeComment']);
-    Route::put('/projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
+    // Route::put('/projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
 
 // Route::post('/projects/{project}/comments', [ProjectController::class, 'addComment'])
 //     ->name('projects.comment')
@@ -76,10 +80,21 @@ Route::get('/settings/{tab?}', [SettingsController::class, 'index'])
     // Route::post('/chats/{chat}/messages', [MessageController::class, 'store'])->name('chats.messages.store');
     // Route::get('/users/list', [UserController::class, 'list'])->middleware('auth');
 
-  Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
-    Route::post('/calendar', [CalendarController::class, 'store'])->name('calendar.store');
-    Route::put('/calendar/{event}', [CalendarController::class, 'update'])->name('calendar.update');
-    Route::delete('/calendar/{event}', [CalendarController::class, 'destroy'])->name('calendar.destroy');
+//  Route::get('/calendar', [EventController::class, 'index'])->name('calendar.index');
+// Route::post('/calendar', [EventController::class, 'store'])->name('calendar.store');
+// // Route::put('/calendar/{event}', [EventController::class, 'update'])->name('calendar.update');
+// // Route::patch('/calendar/{event}/update-date', [EventController::class, 'updateDate'])->name('calendar.update-date');
+// // Route::delete('/calendar/{event}', [EventController::class, 'destroy'])->name('calendar.destroy');
+
+Route::get('/calendar', [EventController::class, 'index'])->name('calendar.index');
+Route::post('/calendar', [EventController::class, 'store'])->name('calendar.store');
+// Route::put('/calendar/{event}', [EventController::class, 'update'])->name('calendar.update');
+// Route::patch('/calendar/{event}/update-date', [EventController::class, 'updateDate'])->name('calendar.update-date');
+Route::delete('/calendar/{event}', [EventController::class, 'destroy'])->name('calendar.destroy');
+
+// Route to fetch tasks for a project
+// Route::get('/projects/{project}/tasks', [EventController::class, 'getProjectTasks']);
+
 
     // Route::get('/settings/activity-types', 
     //     [ActivityTypeController::class, 'index'])
@@ -107,9 +122,13 @@ Route::get('/activities', [ActivityController::class, 'index'])->name('activitie
 Route::get('/activities/create', [ActivityController::class, 'create'])->name('activities.create');
 Route::post('/activities', [ActivityController::class, 'store'])->name('activities.store');
 
+
 Route::get('/activities/{activity}/edit', [ActivityController::class, 'edit'])->name('activities.edit');
 Route::put('/activities/{activity}', [ActivityController::class, 'update'])->name('activities.update');
 Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->name('activities.destroy');
+
+ Route::post('/activities/{activity}/accept', [ActivityController::class, 'accept'])->name('activities.accept');
+    Route::post('/activities/{activity}/complete', [ActivityController::class, 'complete'])->name('activities.complete');
 
 
     // Profile

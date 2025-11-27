@@ -9,12 +9,12 @@ const props = defineProps({
   developers: Array,
 })
 
-// 🧾 Initialize form with project data
+// Initialize form with project data
 const form = useForm({
   title: props.project.title || '',
   description: props.project.description || '',
   client_id: props.project.client_id || '',
-  developer_ids: props.project.users?.map(u => u.id) || [],
+  developer_ids: props.project.developer_ids || [],
   due_date: props.project.due_date || '',
   status: props.project.status || 'Pending',
   tasks: props.project.tasks?.map(t => ({
@@ -22,9 +22,9 @@ const form = useForm({
     developer_ids: t.developer_ids || [],
     weight: Number(t.weight) || 0,
   })) || [],
+  github_links: props.project.github_links?.length ? props.project.github_links : [''],
 })
 
-// Modal for adding/editing tasks
 const showTaskModal = ref(false)
 const editingTaskIndex = ref(null)
 const newTask = ref({
@@ -35,19 +35,18 @@ const newTask = ref({
   weight: 0,
 })
 
-// 🔹 Computed: available developers for project-level selects
+// Available developers helpers (project-level)
 const availableDevelopers = (index) => {
   return props.developers.filter(
     d => !form.developer_ids.includes(d.id) || form.developer_ids[index] === d.id
   )
 }
 
-// 🔹 Computed: developers available for task assignment (only project-level developers)
 const availableTaskDevelopers = computed(() =>
   props.developers.filter(d => form.developer_ids.includes(d.id))
 )
 
-// 🔹 Normalize task weights to total 100%
+// Normalize task weights to total 100%
 const normalizedTasks = computed(() => {
   const total = form.tasks.reduce((sum, t) => sum + Number(t.weight || 0), 0)
   if (total === 0) return form.tasks.map(t => ({ ...t, weight: 0 }))
@@ -57,12 +56,12 @@ const normalizedTasks = computed(() => {
   }))
 })
 
-// 🔹 Show total weight
+// Show total weight
 const totalWeight = computed(() => {
   return normalizedTasks.value.reduce((sum, t) => sum + Number(t.weight), 0).toFixed(2)
 })
 
-// 🔹 Watch: Remove developers from tasks if removed from project
+// Watch: Remove developers from tasks if removed from project
 watch(() => form.developer_ids, (newDevs, oldDevs) => {
   const removed = oldDevs.filter(id => !newDevs.includes(id))
   if (!removed.length) return
@@ -72,11 +71,11 @@ watch(() => form.developer_ids, (newDevs, oldDevs) => {
   })
 })
 
-// 🔹 Add/remove project-level developer slots
+// Add/remove project-level developer slots
 const addDeveloper = () => form.developer_ids.push('')
 const removeDeveloper = (index) => form.developer_ids.splice(index, 1)
 
-// 🔹 Add or update task
+// Add or update task
 const addTask = () => {
   if (!newTask.value.title.trim()) {
     alert('Task title is required')
@@ -102,10 +101,14 @@ const addTask = () => {
   closeTaskModal()
 }
 
-// 🔹 Remove task
+watch(() => newTask.value.weight, (val) => {
+  if (val > 5) newTask.value.weight = 5;
+  if (val < 1) newTask.value.weight = 1;
+});
+// Remove task
 const removeTask = (index) => form.tasks.splice(index, 1)
 
-// 🔹 Open modal for adding/editing a task
+// Open/close task modal
 const openTaskModal = (task = null, index = null) => {
   if (task) {
     editingTaskIndex.value = index
@@ -123,19 +126,23 @@ const openTaskModal = (task = null, index = null) => {
   showTaskModal.value = true
 }
 
-// 🔹 Close task modal
 const closeTaskModal = () => {
   showTaskModal.value = false
   editingTaskIndex.value = null
   newTask.value = { title: '', description: '', task_type: 'Gathering', assign_to: [], weight: 0 }
 }
 
-// 🔹 Submit project
+// GitHub links helpers
+const addGithubLink = () => form.github_links.push('')
+const removeGithubLink = (index) => form.github_links.splice(index, 1)
+
+// Submit project
 const submit = () => {
   form.put(route('projects.update', props.project.id), {
     data: {
       ...form.data(),
       tasks: normalizedTasks.value,
+      github_links: form.github_links.filter(Boolean).map(s => s.trim()),
     },
     onSuccess: () => {
       alert('Project updated successfully!')
@@ -187,6 +194,27 @@ const submit = () => {
       <div class="mb-4">
         <label class="block font-medium dark:text-gray-200">Due Date</label>
         <input type="date" v-model="form.due_date" class="w-full border rounded p-2 dark:bg-gray-700 dark:text-gray-100" />
+      </div>
+
+      <!-- GitHub Links -->
+      <div class="mb-4">
+        <label class="block font-medium dark:text-gray-200 mb-2">Repository Links</label>
+
+        <div v-for="(link, idx) in form.github_links" :key="idx" class="flex gap-2 mb-2 items-center">
+          <input
+            v-model="form.github_links[idx]"
+            placeholder="https://github.com/owner/repo"
+            type="url"
+            class="flex-1 border rounded p-2 dark:bg-gray-700 dark:text-gray-100"
+          />
+          <button type="button" @click="removeGithubLink(idx)" class="text-red-500 hover:underline">Remove</button>
+        </div>
+
+        <button type="button" @click="addGithubLink" class="text-blue-600 dark:text-blue-400 hover:underline">
+          + Add repository link
+        </button>
+
+        <p class="text-sm text-gray-500 mt-2">Optional — add one or more GitHub repository URLs.</p>
       </div>
 
       <!-- Tasks -->
@@ -242,7 +270,7 @@ const submit = () => {
           </select>
 
           <label class="block font-medium dark:text-gray-200">Weight (%)</label>
-          <input v-model.number="newTask.weight" type="number" min="0" max="100" class="w-full border rounded p-2 mb-3 dark:bg-gray-700 dark:text-gray-100" />
+          <input v-model.number="newTask.weight" type="number" min="1" max="5" class="w-full border rounded p-2 mb-3 dark:bg-gray-700 dark:text-gray-100" />
 
           <label class="block font-medium dark:text-gray-200 mb-2">Assign Developers</label>
           <div v-if="availableTaskDevelopers.length" class="space-y-1 mb-4">

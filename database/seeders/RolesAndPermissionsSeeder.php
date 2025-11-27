@@ -16,7 +16,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'view tasks','create tasks','edit tasks','delete tasks',
             'view comments','create comments','edit comments','delete comments',
             'view chats','create chats','edit chats','delete chats',
-            'view activity types','create activity types ','edit activity types','delete activity types'
+            'view activity types','create activity types','edit activity types','delete activity types',
+            'view activities','view own activities','create activities','edit activities','delete activities',
+            
         ];
 
         foreach ($permissions as $permission) {

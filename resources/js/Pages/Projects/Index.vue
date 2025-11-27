@@ -63,7 +63,7 @@ const declineProject = (projectId) => {
 
 const deleteProject = (id) => {
   if (confirm('Are you sure you want to delete this project?')) {
-    router.delete(`/projects/${id}`)
+    router.delete(`/projects/${id}`,{ preserveState: false,})
   }
 }
 

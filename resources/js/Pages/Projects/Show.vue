@@ -118,6 +118,9 @@ const addComment = (e) => {
           <p><strong>Progress:</strong> {{ calculateWeightedProgress(project.tasks) }}%</p>
         </div>
 
+        <!-- Repository Links -->
+  
+
         <!-- Progress Bar -->
         <div class="w-full bg-gray-200 dark:bg-gray-700 h-4 rounded-full mb-8 overflow-hidden">
           <div
@@ -125,6 +128,22 @@ const addComment = (e) => {
             :style="{ width: calculateWeightedProgress(project.tasks) + '%' }"
           ></div>
         </div>
+
+           <!-- Repository Links -->
+<div class="mb-6">
+  <h3 class="text-lg font-semibold dark:text-gray-100 mb-2">Repository Links</h3>
+
+  <div v-if="project.project_github_links && project.project_github_links.length" class="space-y-2">
+    <div v-for="link in project.project_github_links" :key="link.id" class="flex items-center gap-3">
+      <a :href="link.url" target="_blank" rel="noopener noreferrer"
+         class="text-indigo-600 dark:text-indigo-400 hover:underline break-all">
+        {{ link.url }}
+      </a>
+    </div>
+  </div>
+
+  <p v-else class="text-gray-500 dark:text-gray-400">No repository links attached.</p>
+</div>
 
         <!-- Accept / Decline -->
         <div v-if="isAssignedDeveloper && !hasAccepted" class="mb-6 flex gap-3">

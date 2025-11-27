@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+// use App\Models\ProjectGithubLink;
 
 class Project extends Model
 {
@@ -57,9 +58,14 @@ class Project extends Model
     return $this->hasOne(Chat::class);
 }
 
-public function calendarEvents()
+public function events()
 {
-    return $this->hasMany(CalendarEvent::class);
+    return $this->hasMany(Event::class);
 }
+
+ public function projectGithubLinks()
+    {
+        return $this->hasMany(ProjectGithubLink::class);
+    }
 
 }

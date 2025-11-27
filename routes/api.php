@@ -1,5 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\ProjectTaskController;
+use App\Http\Controllers\Api\EventController;
 
-Route::middleware('auth:sanctum')->get('/projects/{project}/tasks', [ProjectTaskController::class, 'index']);
+Route::get('/projects/{projectId}/tasks', [EventController::class, 'getProjectTasks']);
