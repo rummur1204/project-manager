@@ -56,9 +56,9 @@ const openSidebar = ref(true)
         <Link href="/calendar" class="flex items-center gap-2 p-2 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900">
           <CalendarDays class="w-5 h-5" /> Calendar
         </Link>
-        <Link href="/activities" class="flex items-center gap-2 p-2 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900">
+        <!-- <Link href="/activities" class="flex items-center gap-2 p-2 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900">
           <ActivitySquare class="w-5 h-5" /> Activity 
-        </Link>
+        </Link> -->
 
         <Link 
   v-if="can['view users'] || can['view roles']"

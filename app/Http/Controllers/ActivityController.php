@@ -96,36 +96,54 @@ class ActivityController extends Controller
     // ======================
     //  STORE
     // ======================
-    public function store(Request $request)
-    {
-        if (!auth()->user()->can('create activities')) {
-            abort(403, 'Unauthorized action.');
-        }
-
-        $data = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'activity_type_id' => 'required|exists:activity_types,id',
-            'project_id' => 'nullable|exists:projects,id',
-            'developer_ids' => 'required|array',
-            'developer_ids.*' => 'exists:users,id',
-            'due_date' => 'required|date',
-        ]);
-
-        $data['created_by'] = auth()->id();
-        $data['status'] = 'Pending';
-
-        $activity = Activity::create($data);
-        
-        // Attach developers with accepted = false by default
-        $developerData = [];
-        foreach ($data['developer_ids'] as $developerId) {
-            $developerData[$developerId] = ['accepted' => false];
-        }
-        $activity->developers()->sync($developerData);
-
-        return redirect()->route('activities.index')->with('success', 'Activity created successfully!');
+    // ======================
+//  STORE
+// ======================
+public function store(Request $request)
+{
+    if (!auth()->user()->can('create activities')) {
+        abort(403, 'Unauthorized action.');
     }
+
+    $data = $request->validate([
+        'title' => 'required|string|max:255',
+        'description' => 'nullable|string',
+        'activity_type_id' => 'required|exists:activity_types,id',
+        'project_id' => 'nullable|exists:projects,id', // Make it nullable
+        'developer_ids' => 'required|array',
+        'developer_ids.*' => 'exists:users,id',
+        'due_date' => 'required|date',
+    ]);
+
+    // If project_id is not provided in the form, get it from the route parameter
+    if (empty($data['project_id']) && $request->route('project')) {
+        $data['project_id'] = $request->route('project')->id;
+    }
+
+    // If still no project_id, use a default or require it
+    if (empty($data['project_id'])) {
+        return redirect()->back()->with('error', 'Project is required.');
+    }
+
+    $data['created_by'] = auth()->id();
+    $data['status'] = 'Pending';
+
+    $activity = Activity::create($data);
+    
+    // Attach developers with accepted = false by default
+    $developerData = [];
+    foreach ($data['developer_ids'] as $developerId) {
+        $developerData[$developerId] = ['accepted' => false];
+    }
+    $activity->developers()->sync($developerData);
+
+    // Redirect back to the project page if created from project context
+    if ($request->route('project')) {
+        return redirect()->route('projects.show', $request->route('project'))->with('success', 'Activity created successfully!');
+    }
+
+    return redirect()->route('activities.index')->with('success', 'Activity created successfully!');
+}
 
     // ======================
     //  EDIT
@@ -155,6 +173,9 @@ class ActivityController extends Controller
     //  UPDATE
     // ======================
     // ======================
+//  UPDATE
+// ======================
+// ======================
 //  UPDATE
 // ======================
 public function update(Request $request, Activity $activity)
@@ -202,8 +223,20 @@ public function update(Request $request, Activity $activity)
     // Sync pivot table: removes unselected developers, adds new ones, preserves accepted status
     $activity->developers()->sync($pivotData);
 
-            return redirect()->route('activities.index')->with('success', 'Activity updated successfully!');
-
+    // Check if the request is coming from a project page or activities index
+    // You can check the referrer or add a custom header/parameter
+    $referer = $request->header('referer');
+    
+    // Check if the referer contains '/projects/' which means it came from a project page
+    if ($referer && strpos($referer, '/projects/') !== false && $activity->project_id) {
+        // Extract project ID from referer or use activity's project_id
+        return redirect()->route('projects.show', $activity->project_id)
+                         ->with('success', 'Activity updated successfully!');
+    }
+    
+    // Default: redirect to activities index
+    return redirect()->route('activities.index')
+                     ->with('success', 'Activity updated successfully!');
 }
 
 
@@ -233,26 +266,26 @@ public function update(Request $request, Activity $activity)
     // ======================
     //  ACCEPT / COMPLETE
     // ======================
-    public function accept(Activity $activity)
-    {
-        $user = auth()->user();
+    // public function accept(Activity $activity)
+    // {
+    //     $user = auth()->user();
 
-        if (!$activity->developers()->where('user_id', $user->id)->exists()) {
-            abort(403, 'You are not assigned to this activity.');
-        }
+    //     if (!$activity->developers()->where('user_id', $user->id)->exists()) {
+    //         abort(403, 'You are not assigned to this activity.');
+    //     }
 
-        // Update pivot table acceptance
-        $activity->developers()->updateExistingPivot($user->id, ['accepted' => true]);
+    //     // Update pivot table acceptance
+    //     $activity->developers()->updateExistingPivot($user->id, ['accepted' => true]);
 
-        // Check if all assigned developers have accepted
-        $allAccepted = $activity->developers()->wherePivot('accepted', false)->doesntExist();
+    //     // Check if all assigned developers have accepted
+    //     $allAccepted = $activity->developers()->wherePivot('accepted', false)->doesntExist();
 
-        if ($allAccepted) {
-            $activity->update(['status' => 'In Progress']);
-        }
+    //     if ($allAccepted) {
+    //         $activity->update(['status' => 'In Progress']);
+    //     }
 
-        return redirect()->route('activities.index')->with('success', 'Activity accepted successfully!');
-    }
+    //     return redirect()->route('activities.index')->with('success', 'Activity accepted successfully!');
+    // }
 
     public function complete(Activity $activity)
     {
@@ -266,4 +299,32 @@ public function update(Request $request, Activity $activity)
 
         return redirect()->route('activities.index')->with('success', 'Activity marked as completed!');
     }
+    // ======================
+//  UPDATE STATUS
+// ======================
+// ======================
+//  UPDATE STATUS
+// ======================
+public function updateStatus(Request $request, Activity $activity)
+{
+    $user = auth()->user();
+    
+    // Check if user is assigned to the activity or has permission
+    $isAssigned = $activity->developers()->where('user_id', $user->id)->exists();
+    $canEdit = $user->can('edit activities') || 
+               ($user->can('view all activities') && $activity->created_by === $user->id);
+    
+    if (!$isAssigned && !$canEdit) {
+        abort(403, 'You are not authorized to update this activity status.');
+    }
+
+    $validated = $request->validate([
+        'status' => 'required|in:Pending,In Progress,Completed'
+    ]);
+
+    // Update activity status
+    $activity->update(['status' => $validated['status']]);
+
+    return redirect()->back()->with('success', 'Activity status updated successfully!');
+}
 }

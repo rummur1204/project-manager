@@ -93,21 +93,23 @@ const selectDate = (date) => {
 
 // Events on a date - FIXED: Use start_date instead of start
 // Events on a date - FIXED: Use the correct property names
+// Events on a date - Alternative solution using dayjs
 const getEventsForDate = (date) => {
   const dateStr = date.format("YYYY-MM-DD");
   const list = [];
 
-  console.log('Checking events for date:', dateStr);
-  console.log('Available events:', events.value);
-
-  // Calendar events - FIX: Use 'start' property (from controller mapping)
+  // Calendar events - Using dayjs for comparison
   events.value.forEach(ev => {
-    if (ev && ev.start === dateStr) {
-      console.log('Found matching event:', ev);
+    if (!ev || !ev.start) return;
+    
+    // Use dayjs to compare dates (ignores time)
+    const eventDate = dayjs(ev.start).format("YYYY-MM-DD");
+    
+    if (eventDate === dateStr) {
       list.push({
         type: "event",
         title: ev.title,
-        color: ev.color
+        color: ev.color || "#3b82f6"
       });
     }
   });
@@ -134,10 +136,8 @@ const getEventsForDate = (date) => {
     }
   });
 
-  console.log('Events for date', dateStr, ':', list);
   return list;
 };
-
 // When selecting a project → autofill the deadline + red color
 watch(() => form.project_id, (projectId) => {
   form.task_id = "";
@@ -201,9 +201,7 @@ watch(events, (newEvents) => {
         </div>
 
         <!-- Debug info -->
-        <div class="mb-4 p-2 bg-yellow-50 text-sm text-gray-700 rounded">
-          Total events: {{ events.length }}
-        </div>
+        
 
         <!-- Day headers -->
         <div class="grid grid-cols-7 gap-2 text-center font-semibold text-gray-600 mb-2">

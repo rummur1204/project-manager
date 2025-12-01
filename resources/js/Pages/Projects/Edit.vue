@@ -218,7 +218,7 @@ const submit = () => {
       </div>
 
       <!-- Tasks -->
-      <div class="mb-4">
+      <!-- <div class="mb-4">
         <label class="block font-medium dark:text-gray-200 mb-2">Tasks</label>
         <div v-if="form.tasks.length" class="space-y-2 mb-3">
           <div v-for="(t, i) in normalizedTasks" :key="i" class="border rounded p-2 bg-gray-50 dark:bg-gray-700">
@@ -246,10 +246,10 @@ const submit = () => {
         <button type="button" class="text-blue-600 dark:text-blue-400 hover:underline" @click="openTaskModal()">
           + Add Task
         </button>
-      </div>
+      </div> -->
 
       <!-- Task Modal -->
-      <div v-if="showTaskModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <!-- <div v-if="showTaskModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
           <h2 class="text-lg font-semibold mb-3 dark:text-gray-100">{{ editingTaskIndex !== null ? 'Edit Task' : 'Add Task' }}</h2>
 
@@ -286,7 +286,7 @@ const submit = () => {
             <button @click="addTask" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Save Task</button>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <!-- Submit -->
       <div class="mt-6">

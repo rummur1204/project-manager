@@ -44,6 +44,12 @@ Route::middleware(['auth'])->get('/chat/list', [ChatController::class, 'list']);
     Route::put('projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::delete('/projects/{project}/tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
     Route::patch('/projects/{project}/tasks/{task}/toggle', [TaskController::class, 'toggleStatus'])->name('tasks.toggle');
+    // Bulk task update route
+Route::patch('/projects/{project}/tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('projects.tasks.bulk-update');
+// Bulk task creation route
+Route::post('/projects/{project}/tasks/bulk-create', [ProjectController::class, 'bulkCreateTasks'])->name('projects.tasks.bulk-create');
+// Temporary debug route in web.php
+Route::patch('/projects/{project}/tasks/{task}/status', [TaskController::class, 'updateStatus'])->name('tasks.status');
     // In web.php
 // Route::put('/projects/{project}/tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('projects.tasks.bulk-update');
 // Route::post('/projects/{project}/tasks', [ProjectController::class, 'storeTasks'])->name('projects.tasks.store');
@@ -130,6 +136,11 @@ Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])-
  Route::post('/activities/{activity}/accept', [ActivityController::class, 'accept'])->name('activities.accept');
     Route::post('/activities/{activity}/complete', [ActivityController::class, 'complete'])->name('activities.complete');
 
+    // In your web.php, add this line in the activities section:
+Route::post('/projects/{project}/activities', [ActivityController::class, 'store'])->name('projects.activities.store');
+// Add this route for activity status updates
+Route::patch('/activities/{activity}/status', [ActivityController::class, 'updateStatus'])
+    ->name('activities.status');
 
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

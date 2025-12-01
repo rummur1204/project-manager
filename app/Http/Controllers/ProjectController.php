@@ -7,7 +7,8 @@ use App\Models\Task;
 use App\Models\User;
 use App\Models\Chat;
 use App\Models\Comment;
-use App\Models\ProjectGithubLink; // Updated model name
+use App\Models\ActivityType;
+use App\Models\ProjectGithubLink;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -79,152 +80,162 @@ class ProjectController extends Controller
     //  STORE
     // ======================
     public function store(Request $request)
-{
-    \Log::info('Received project creation request', $request->all());
+    {
+        \Log::info('Received project creation request', $request->all());
 
-    try {
-        $data = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'client_id' => 'required|exists:users,id',
-            'developer_ids' => 'array',
-            'developer_ids.*' => 'exists:users,id',
-            'due_date' => 'nullable|date',
-            'tasks' => 'array',
-            'tasks.*.title' => 'required|string|max:255',
-            'tasks.*.description' => 'nullable|string',
-            'tasks.*.task_type' => 'nullable|string',
-            'tasks.*.weight' => 'numeric|min:0|max:100',
-            'tasks.*.developer_ids' => 'array',
-            'tasks.*.developer_ids.*' => 'exists:users,id',
-            'github_links' => 'array',
-            'github_links.*' => 'nullable|string',
-        ]);
+        try {
+            $data = $request->validate([
+                'title' => 'required|string|max:255',
+                'description' => 'nullable|string',
+                'client_id' => 'required|exists:users,id',
+                'developer_ids' => 'array',
+                'developer_ids.*' => 'exists:users,id',
+                'due_date' => 'nullable|date',
+                'tasks' => 'array',
+                'tasks.*.title' => 'required|string|max:255',
+                'tasks.*.description' => 'nullable|string',
+                'tasks.*.task_type' => 'nullable|string',
+                'tasks.*.weight' => 'numeric|min:0|max:100',
+                'tasks.*.developer_ids' => 'array',
+                'tasks.*.developer_ids.*' => 'exists:users,id',
+                'github_links' => 'array',
+                'github_links.*' => 'nullable|string',
+            ]);
 
-        \Log::info('Validation passed', $data);
+            \Log::info('Validation passed', $data);
 
-        // 1️⃣ Create Project
-        $project = Project::create([
-            'title' => $data['title'],
-            'description' => $data['description'] ?? '',
-            'client_id' => $data['client_id'],
-            'created_by' => auth()->id(),
-            'status' => 'Pending',
-            'progress' => 0,
-            'due_date' => $data['due_date'] ?? null,
-        ]);
+            // 1️⃣ Create Project
+            $project = Project::create([
+                'title' => $data['title'],
+                'description' => $data['description'] ?? '',
+                'client_id' => $data['client_id'],
+                'created_by' => auth()->id(),
+                'status' => 'Pending',
+                'progress' => 0,
+                'due_date' => $data['due_date'] ?? null,
+            ]);
 
-        \Log::info('Project created', ['project_id' => $project->id]);
+            \Log::info('Project created', ['project_id' => $project->id]);
 
-        // 2️⃣ Attach project developers (if any)
-        if (!empty($data['developer_ids'])) {
-            $project->developers()->attach($data['developer_ids']);
-            \Log::info('Developers attached', $data['developer_ids']);
-        }
+            // 2️⃣ Attach project developers (if any)
+            if (!empty($data['developer_ids'])) {
+                $project->developers()->attach($data['developer_ids']);
+                \Log::info('Developers attached', $data['developer_ids']);
+            }
 
-        // 3️⃣ Create GitHub Links
-        if (!empty($data['github_links'])) {
-            foreach ($data['github_links'] as $link) {
-                if (!empty(trim($link))) {
-                    ProjectGithubLink::create([
-                        'project_id' => $project->id,
-                        'url' => trim($link)
+            // 3️⃣ Create GitHub Links
+            if (!empty($data['github_links'])) {
+                foreach ($data['github_links'] as $link) {
+                    if (!empty(trim($link))) {
+                        ProjectGithubLink::create([
+                            'project_id' => $project->id,
+                            'url' => trim($link)
+                        ]);
+                    }
+                }
+                \Log::info('GitHub links created', $data['github_links']);
+            }
+
+            // 4️⃣ Create Tasks and attach task developers
+            \Log::info('Starting task creation', ['task_count' => count($data['tasks'] ?? [])]);
+            
+            if (!empty($data['tasks'])) {
+                foreach ($data['tasks'] as $index => $taskData) {
+                    \Log::info("Creating task {$index}", $taskData);
+                    
+                    $task = $project->tasks()->create([
+                        'title' => $taskData['title'],
+                        'description' => $taskData['description'] ?? '',
+                        'task_type' => $taskData['task_type'] ?? 'Gathering',
+                        'weight' => $taskData['weight'] ?? 0,
+                        'status' => 'New',
                     ]);
+
+                    \Log::info("Task created successfully", ['task_id' => $task->id, 'project_id' => $project->id]);
+
+                    if (!empty($taskData['developer_ids'])) {
+                        $task->developers()->attach($taskData['developer_ids']);
+                        \Log::info("Task developers attached", $taskData['developer_ids']);
+                    }
                 }
+                \Log::info('All tasks created successfully');
+            } else {
+                \Log::info('No tasks to create');
             }
-            \Log::info('GitHub links created', $data['github_links']);
+
+            // 5️⃣ Create Group Chat for the project
+            $chat = Chat::create([
+                'project_id' => $project->id,
+                'type' => 'group',
+                'name' => $project->title . ' Group Chat',
+            ]);
+
+            \Log::info('Chat created', ['chat_id' => $chat->id]);
+
+            // 6️⃣ Attach chat participants
+            $superAdminIds = User::role('Super Admin')->pluck('id')->toArray();
+            $participantIds = array_merge(
+                [$project->client_id, $project->created_by],
+                $data['developer_ids'] ?? [],
+                $superAdminIds
+            );
+
+            $chat->users()->sync($participantIds);
+            \Log::info('Chat participants synced', $participantIds);
+
+            \Log::info('=== PROJECT CREATION COMPLETED SUCCESSFULLY ===');
+            return redirect()->route('projects.index')->with('success', 'Project created successfully!');
+
+        } catch (\Exception $e) {
+            \Log::error('=== PROJECT CREATION FAILED ===');
+            \Log::error('Error: ' . $e->getMessage());
+            \Log::error('File: ' . $e->getFile());
+            \Log::error('Line: ' . $e->getLine());
+            \Log::error('Trace: ' . $e->getTraceAsString());
+            
+            return back()->withErrors(['error' => 'Failed to create project: ' . $e->getMessage()]);
         }
-
-        // 4️⃣ Create Tasks and attach task developers
-        \Log::info('Starting task creation', ['task_count' => count($data['tasks'] ?? [])]);
-        
-        if (!empty($data['tasks'])) {
-            foreach ($data['tasks'] as $index => $taskData) {
-                \Log::info("Creating task {$index}", $taskData);
-                
-                $task = $project->tasks()->create([
-                    'title' => $taskData['title'],
-                    'description' => $taskData['description'] ?? '',
-                    'task_type' => $taskData['task_type'] ?? 'Gathering',
-                    'weight' => $taskData['weight'] ?? 0,
-                    'status' => 'Pending',
-                ]);
-
-                \Log::info("Task created successfully", ['task_id' => $task->id, 'project_id' => $project->id]);
-
-                if (!empty($taskData['developer_ids'])) {
-                    $task->developers()->attach($taskData['developer_ids']);
-                    \Log::info("Task developers attached", $taskData['developer_ids']);
-                }
-            }
-            \Log::info('All tasks created successfully');
-        } else {
-            \Log::info('No tasks to create');
-        }
-
-        // 5️⃣ Create Group Chat for the project
-        $chat = Chat::create([
-            'project_id' => $project->id,
-            'type' => 'group',
-            'name' => $project->title . ' Group Chat',
-        ]);
-
-        \Log::info('Chat created', ['chat_id' => $chat->id]);
-
-        // 6️⃣ Attach chat participants
-        $superAdminIds = User::role('Super Admin')->pluck('id')->toArray();
-        $participantIds = array_merge(
-            [$project->client_id, $project->created_by],
-            $data['developer_ids'] ?? [],
-            $superAdminIds
-        );
-
-        $chat->users()->sync($participantIds);
-        \Log::info('Chat participants synced', $participantIds);
-
-        \Log::info('=== PROJECT CREATION COMPLETED SUCCESSFULLY ===');
-        return redirect()->route('projects.index')->with('success', 'Project created successfully!');
-
-    } catch (\Exception $e) {
-        \Log::error('=== PROJECT CREATION FAILED ===');
-        \Log::error('Error: ' . $e->getMessage());
-        \Log::error('File: ' . $e->getFile());
-        \Log::error('Line: ' . $e->getLine());
-        \Log::error('Trace: ' . $e->getTraceAsString());
-        
-        return back()->withErrors(['error' => 'Failed to create project: ' . $e->getMessage()]);
     }
-}
 
     // ======================
     //  SHOW
     // ======================
-    public function show(Project $project)
-    {
-        $user = auth()->user();
+   public function show(Project $project)
+{
+    $user = auth()->user();
 
-        $projectUser = $project->users()->where('user_id', $user->id)->first();
+    $projectUser = $project->users()->where('user_id', $user->id)->first();
 
-        $isDeveloper = $projectUser && $user->hasRole('Developer');
-        $hasAccepted = $projectUser && $projectUser->pivot->accepted;
+    $isDeveloper = $projectUser && $user->hasRole('Developer');
+    $hasAccepted = $projectUser && $projectUser->pivot->accepted;
 
-        if ($isDeveloper && !$hasAccepted) {
-            abort(403, 'You cannot view this project until you accept it.');
-        }
-
-        $project->load([
-            'client',
-            'developers' => fn($q) => $q->withPivot('accepted'),
-            'tasks.developers',
-            'tasks.comments.user',
-            'comments.user',
-            'projectGithubLinks', // Updated relationship name
-        ]);
-
-        return Inertia::render('Projects/Show', [
-            'project' => $project,
-        ]);
+    if ($isDeveloper && !$hasAccepted) {
+        abort(403, 'You cannot view this project until you accept it.');
     }
+
+    $project->load([
+        'client',
+        'developers' => fn($q) => $q->withPivot('accepted'),
+        'tasks.developers',
+        'tasks.comments.user',
+        'comments.user',
+        'projectGithubLinks',
+        'activities.developers',
+        'activities.type', // Add activities if you have them
+    ]);
+
+    // Load activity types - you'll need to adjust this based on your model
+    $activityTypes = ActivityType::all(); // Or whatever your model is
+
+    // Debug: Check if activity types are being loaded
+   
+
+
+    return Inertia::render('Projects/Show', [
+        'project' => $project,
+        'activity_types' => $activityTypes, // Add this line
+    ]);
+}
 
     // ======================
     //  EDIT
@@ -234,7 +245,7 @@ class ProjectController extends Controller
         $clients = User::role('Client')->get();
         $developers = User::role('Developer')->get();
 
-        $project->load(['users', 'tasks.users', 'tasks.comments.user', 'projectGithubLinks']); // Updated relationship name
+        $project->load(['users', 'tasks.users', 'tasks.comments.user', 'projectGithubLinks']);
         
         $tasks = $project->tasks->map(function ($task) {
             return [
@@ -258,7 +269,7 @@ class ProjectController extends Controller
                 ...$project->toArray(),
                 'tasks' => $tasks,
                 'developer_ids' => $project->users->pluck('id')->toArray(),
-                'github_links' => $project->projectGithubLinks->pluck('url')->toArray(), // Updated relationship
+                'github_links' => $project->projectGithubLinks->pluck('url')->toArray(),
             ],
             'clients' => $clients,
             'developers' => $developers,
@@ -350,7 +361,8 @@ class ProjectController extends Controller
                         'title' => $taskData['title'],
                         'description' => $taskData['description'] ?? '',
                         'task_type' => $taskData['task_type'],
-                        'weight' => $normalizedWeight
+                        'weight' => $normalizedWeight,
+                        'status' => 'New'
                     ]);
 
                     $task->developers()->sync($taskData['developer_ids'] ?? []);
@@ -363,6 +375,9 @@ class ProjectController extends Controller
             if (!empty($toDelete)) {
                 Task::destroy($toDelete);
             }
+
+            // Update project progress
+            $this->updateProjectProgress($project);
         });
 
         return redirect()
@@ -421,6 +436,139 @@ class ProjectController extends Controller
         }
 
         return back()->with('success', 'You have declined this project.');
+    }
+
+    // ======================
+    //  TASK MANAGEMENT - NEW METHODS
+    // ======================
+
+    /**
+     * Store a new task for the project
+     */
+    public function storeTask(Request $request, Project $project)
+    {
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'task_type' => 'required|string|in:Design,Development,Testing,Deployment,Documentation',
+            'weight' => 'required|numeric|min:0|max:100',
+            'developer_ids' => 'array',
+            'developer_ids.*' => 'exists:users,id',
+            'due_date' => 'nullable|date',
+        ]);
+
+        DB::transaction(function () use ($project, $data) {
+            $task = $project->tasks()->create([
+                'title' => $data['title'],
+                'description' => $data['description'] ?? '',
+                'task_type' => $data['task_type'],
+                'weight' => $data['weight'],
+                'status' => 'New',
+                'due_date' => $data['due_date'] ?? null,
+            ]);
+
+            if (!empty($data['developer_ids'])) {
+                $task->developers()->attach($data['developer_ids']);
+            }
+
+            // Update project progress
+            $this->updateProjectProgress($project);
+        });
+
+        return back()->with('success', 'Task added successfully!');
+    }
+
+    /**
+     * Update task status (mark as seen/in progress/completed)
+     */
+    public function updateTaskStatus(Request $request, Project $project, Task $task)
+    {
+        if ($task->project_id !== $project->id) {
+            abort(403, 'Task does not belong to this project.');
+        }
+
+        $data = $request->validate([
+            'status' => 'required|in:New,In Progress,Completed'
+        ]);
+
+        $task->update(['status' => $data['status']]);
+
+        // Update project progress
+        $this->updateProjectProgress($project);
+
+        return back()->with('success', 'Task status updated successfully!');
+    }
+
+    /**
+     * Update task details
+     */
+    public function updateTask(Request $request, Project $project, Task $task)
+    {
+        if ($task->project_id !== $project->id) {
+            abort(403, 'Task does not belong to this project.');
+        }
+
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'task_type' => 'required|string|in:Design,Development,Testing,Deployment,Documentation',
+            'weight' => 'required|numeric|min:0|max:100',
+            'developer_ids' => 'array',
+            'developer_ids.*' => 'exists:users,id',
+            'due_date' => 'nullable|date',
+        ]);
+
+        DB::transaction(function () use ($task, $data) {
+            $task->update([
+                'title' => $data['title'],
+                'description' => $data['description'] ?? '',
+                'task_type' => $data['task_type'],
+                'weight' => $data['weight'],
+                'due_date' => $data['due_date'] ?? null,
+            ]);
+
+            if (isset($data['developer_ids'])) {
+                $task->developers()->sync($data['developer_ids']);
+            }
+        });
+
+        return back()->with('success', 'Task updated successfully!');
+    }
+
+    /**
+     * Delete a task
+     */
+    public function destroyTask(Project $project, Task $task)
+    {
+        if ($task->project_id !== $project->id) {
+            abort(403, 'Task does not belong to this project.');
+        }
+
+        DB::transaction(function () use ($task, $project) {
+            $task->delete();
+            $this->updateProjectProgress($project);
+        });
+
+        return back()->with('success', 'Task deleted successfully!');
+    }
+
+    /**
+     * Helper method to update project progress based on tasks
+     */
+    private function updateProjectProgress(Project $project)
+    {
+        $tasks = $project->tasks;
+        
+        if ($tasks->isEmpty()) {
+            $project->update(['progress' => 0]);
+            return;
+        }
+
+        $totalWeight = $tasks->sum('weight') ?: 1;
+        $completedWeight = $tasks->where('status', 'Completed')->sum('weight');
+        
+        $progress = round(($completedWeight / $totalWeight) * 100);
+        $project->update(['progress' => $progress]);
     }
 
     // ======================
@@ -502,4 +650,6 @@ class ProjectController extends Controller
 
         return back()->with('success', 'GitHub link removed successfully!');
     }
+
+    
 }

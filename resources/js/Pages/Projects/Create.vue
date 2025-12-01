@@ -100,10 +100,10 @@ const removeGithubLink = (index) => form.github_links.splice(index, 1)
 
 // ✅ Submit project (send normalized weights)
 const submit = () => {
-  if (!form.tasks.length) {
-    alert('Please add at least one task.')
-    return 
-  } 
+  // if (!form.tasks.length) {
+  //   alert('Please add at least one task.')
+  //   return 
+  // } 
   
   const payload = {
     title: form.title,
@@ -111,7 +111,7 @@ const submit = () => {
     client_id: form.client_id,
     developer_ids: form.developer_ids.filter(id => id !== ''),
     due_date: form.due_date,
-    tasks: normalizedTasks.value, // ✅ Send normalized weights (percentages)
+    // tasks: normalizedTasks.value, // ✅ Send normalized weights (percentages)
     github_links: form.github_links.filter(link => link && link.trim() !== ''),
   }
 
@@ -198,10 +198,10 @@ const submit = () => {
       </div>
 
       <!-- Tasks -->
-      <div class="mb-4">
+      <!-- <div class="mb-4">
         <label class="block font-medium dark:text-gray-200 mb-2">Tasks</label>
 
-        <!-- Display tasks with NORMALIZED weights (percentages) -->
+       
         <div v-if="form.tasks.length" class="space-y-2 mb-3">
           <div v-for="(t, i) in normalizedTasks" :key="i" class="border rounded p-2 bg-gray-50 dark:bg-gray-700">
             <div class="flex justify-between items-center">
@@ -230,10 +230,10 @@ const submit = () => {
         <button type="button" class="text-blue-600 dark:text-blue-400 hover:underline" @click="showTaskModal = true">
           + Add Task
         </button>
-      </div>
+      </div> -->
 
       <!-- Task Modal -->
-      <div v-if="showTaskModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <!-- <div v-if="showTaskModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
           <h2 class="text-lg font-semibold mb-3 dark:text-gray-100">Add Task</h2>
 
@@ -253,7 +253,7 @@ const submit = () => {
             <option value="Maintenance">Maintenance</option>
           </select>
 
-          <!-- Input for RAW weight (1-5) -->
+          
           <label class="block font-medium dark:text-gray-200">Weight (1-5 scale)</label>
           <input 
             v-model.number="newTask.weight" 
@@ -282,7 +282,7 @@ const submit = () => {
             </button>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <!-- Submit -->
       <div class="mt-6">

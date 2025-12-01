@@ -63,6 +63,11 @@ public function events()
     return $this->hasMany(Event::class);
 }
 
+public function activities()
+{
+    return $this->hasMany(Activity::class);
+}
+
  public function projectGithubLinks()
     {
         return $this->hasMany(ProjectGithubLink::class);
