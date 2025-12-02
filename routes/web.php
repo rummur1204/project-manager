@@ -83,6 +83,10 @@ Route::get('/settings/{tab?}', [SettingsController::class, 'index'])
  Route::get('/chats', [ChatController::class, 'index'])->name('chats.index');
     Route::get('/chats/{chat}', [ChatController::class, 'show'])->name('chats.show');
     Route::post('/chats', [ChatController::class, 'store'])->name('chats.store');
+    // Add this route for getting unread count
+Route::get('/chats/unread-count', [ChatController::class, 'getUnreadCount'])
+    ->middleware('auth')
+    ->name('chats.unread-count');
     // Route::post('/chats/{chat}/messages', [MessageController::class, 'store'])->name('chats.messages.store');
     // Route::get('/users/list', [UserController::class, 'list'])->middleware('auth');
 
@@ -94,8 +98,7 @@ Route::get('/settings/{tab?}', [SettingsController::class, 'index'])
 
 Route::get('/calendar', [EventController::class, 'index'])->name('calendar.index');
 Route::post('/calendar', [EventController::class, 'store'])->name('calendar.store');
-// Route::put('/calendar/{event}', [EventController::class, 'update'])->name('calendar.update');
-// Route::patch('/calendar/{event}/update-date', [EventController::class, 'updateDate'])->name('calendar.update-date');
+Route::put('/calendar/{event}', [EventController::class, 'update'])->name('calendar.update');
 Route::delete('/calendar/{event}', [EventController::class, 'destroy'])->name('calendar.destroy');
 
 // Route to fetch tasks for a project
@@ -141,6 +144,9 @@ Route::post('/projects/{project}/activities', [ActivityController::class, 'store
 // Add this route for activity status updates
 Route::patch('/activities/{activity}/status', [ActivityController::class, 'updateStatus'])
     ->name('activities.status');
+
+      Route::get('/search', [SearchController::class, 'index'])->name('search');
+    Route::get('/api/search/quick', [SearchController::class, 'quickSearch'])->name('api.search.quick');
 
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

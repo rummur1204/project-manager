@@ -69,9 +69,9 @@ class User extends Authenticatable
     public function comments() {
          return $this->hasMany(Comment::class); 
     }
-    public function calendarEvents()
+    public function events()
     {
-    return $this->hasMany(CalendarEvent::class);
+    return $this->hasMany(Event::class);
     }
     public function activities() {
     return $this->belongsToMany(Activity::class, 'activity_user')->withTimestamps();

@@ -18,6 +18,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view chats','create chats','edit chats','delete chats',
             'view activity types','create activity types','edit activity types','delete activity types',
             'view activities','view own activities','create activities','edit activities','delete activities',
+            'view events','create events','edit events','delete events',
             
         ];
 
