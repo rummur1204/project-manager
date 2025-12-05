@@ -279,66 +279,137 @@ class ProjectController extends Controller
     // ======================
     //  UPDATE
     // ======================
-    public function update(Request $request, Project $project)
-    {
-        $data = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'client_id' => 'required|exists:users,id',
-            'developer_ids' => 'array',
-            'developer_ids.*' => 'exists:users,id',
-            'due_date' => 'nullable|date',
-            'tasks' => 'array',
-            'tasks.*.id' => 'nullable|exists:tasks,id',
-            'tasks.*.title' => 'required|string',
-            'tasks.*.description' => 'nullable|string',
-            'tasks.*.task_type' => 'required|string',
-            'tasks.*.weight' => 'numeric|min:0|max:100',
-            'tasks.*.developer_ids' => 'array',
-            'tasks.*.developer_ids.*' => 'exists:users,id',
-            'github_links' => 'array',
-            'github_links.*' => 'nullable|url',
+   // ======================
+//  UPDATE
+// ======================
+public function update(Request $request, Project $project)
+{
+    $data = $request->validate([
+        'title' => 'required|string|max:255',
+        'description' => 'nullable|string',
+        'client_id' => 'required|exists:users,id',
+        'developer_ids' => 'array',
+        'developer_ids.*' => 'exists:users,id',
+        'due_date' => 'nullable|date',
+        'tasks' => 'array',
+        'tasks.*.id' => 'nullable|exists:tasks,id',
+        'tasks.*.title' => 'required|string',
+        'tasks.*.description' => 'nullable|string',
+        'tasks.*.task_type' => 'required|string',
+        'tasks.*.weight' => 'numeric|min:0|max:100',
+        'tasks.*.developer_ids' => 'array',
+        'tasks.*.developer_ids.*' => 'exists:users,id',
+        'github_links' => 'array',
+        'github_links.*' => 'nullable|url',
+    ]);
+
+    DB::transaction(function () use ($project, $data) {
+        // Get current state before updates for comparison
+        $oldClientId = $project->client_id;
+        $oldDeveloperIds = $project->developers()->pluck('users.id')->toArray();
+        
+        \Log::info('Project Update - Before Changes:', [
+            'old_client_id' => $oldClientId,
+            'old_developer_ids' => $oldDeveloperIds,
+            'new_client_id' => $data['client_id'],
+            'new_developer_ids' => $data['developer_ids'] ?? [],
         ]);
 
-        DB::transaction(function () use ($project, $data) {
-            $project->update($data);
+        // Update project
+        $project->update($data);
 
-            // 🔄 Sync project developers
-            $project->developers()->sync($data['developer_ids']);
+        // 🔄 Sync project developers
+        $project->developers()->sync($data['developer_ids'] ?? []);
 
-            // 🔄 Update GitHub Links using ProjectsGithubLink model
-            if (isset($data['github_links'])) {
-                // Delete existing links
-                ProjectGithubLink::where('project_id', $project->id)->delete();
-                
-                // Create new links
-                foreach ($data['github_links'] as $link) {
-                    if (!empty(trim($link))) {
-                        ProjectGithubLink::create([
-                            'project_id' => $project->id,
-                            'url' => trim($link)
-                        ]);
+        // 🔄 UPDATE GROUP CHAT PARTICIPANTS
+        $chat = Chat::where('project_id', $project->id)->where('type', 'group')->first();
+        
+        if ($chat) {
+            // Get current chat participants
+            $currentChatParticipants = $chat->users()->pluck('users.id')->toArray();
+            
+            // Build new participant list
+            $superAdminIds = User::role('Super Admin')->pluck('id')->toArray();
+            $newParticipantIds = array_merge(
+                [$data['client_id'], $project->created_by],
+                $data['developer_ids'] ?? [],
+                $superAdminIds
+            );
+            $newParticipantIds = array_unique($newParticipantIds);
+            
+            \Log::info('Chat Update:', [
+                'current_participants' => $currentChatParticipants,
+                'new_participants' => $newParticipantIds,
+                'clients_changed' => $oldClientId != $data['client_id'],
+            ]);
+            
+            // Handle client change if client was updated
+            if ($oldClientId != $data['client_id']) {
+                // Remove old client from chat if they're not a developer
+                if (!in_array($oldClientId, $data['developer_ids'] ?? [])) {
+                    $chat->users()->detach($oldClientId);
+                    \Log::info('Removed old client from chat:', ['user_id' => $oldClientId]);
+                }
+            }
+            
+            // Handle developers added/removed
+            $removedDevelopers = array_diff($oldDeveloperIds, $data['developer_ids'] ?? []);
+            $addedDevelopers = array_diff($data['developer_ids'] ?? [], $oldDeveloperIds);
+            
+            if (!empty($removedDevelopers)) {
+                foreach ($removedDevelopers as $devId) {
+                    // Only remove if they're not the new client
+                    if ($devId != $data['client_id']) {
+                        $chat->users()->detach($devId);
+                        \Log::info('Removed developer from chat:', ['user_id' => $devId]);
                     }
                 }
             }
-
-            // Get all existing task IDs for this project
-            $existingTaskIds = $project->tasks()->pluck('id')->toArray();
-
-            // Track all tasks that were kept or updated
-            $keptTaskIds = [];
-
-            $totalWeight = array_sum(array_map(fn($t) => $t['weight'] ?? 0, $data['tasks']));
-            if ($totalWeight <= 0) {
-                $totalWeight = 1; // prevent division by zero
+            
+            // Add new participants (including new client and added developers)
+            $chat->users()->sync($newParticipantIds, false); // false = don't detach existing
+            
+            \Log::info('Chat participants updated:', [
+                'added_developers' => $addedDevelopers,
+                'removed_developers' => $removedDevelopers,
+                'final_participants' => $chat->fresh()->users()->pluck('users.id')->toArray(),
+            ]);
+            
+            // Update chat name
+            $newChatName = $project->title . ' Group Chat';
+            if ($chat->name != $newChatName) {
+                $chat->update(['name' => $newChatName]);
             }
+        }
 
-            foreach ($data['tasks'] as $taskData) {
-                $normalizedWeight = round(($taskData['weight'] ?? 0) / $totalWeight * 100, 2);
+        // 🔄 Update GitHub Links
+        if (isset($data['github_links'])) {
+            ProjectGithubLink::where('project_id', $project->id)->delete();
+            
+            foreach ($data['github_links'] as $link) {
+                if (!empty(trim($link))) {
+                    ProjectGithubLink::create([
+                        'project_id' => $project->id,
+                        'url' => trim($link)
+                    ]);
+                }
+            }
+        }
 
-                if (!empty($taskData['id'])) {
-                    // ✅ Update existing task
-                    $task = Task::find($taskData['id']);
+        // 🔄 Update Tasks
+        $existingTaskIds = $project->tasks()->pluck('id')->toArray();
+        $keptTaskIds = [];
+
+        $totalWeight = array_sum(array_map(fn($t) => $t['weight'] ?? 0, $data['tasks'] ?? []));
+        if ($totalWeight <= 0) $totalWeight = 1;
+
+        foreach (($data['tasks'] ?? []) as $taskData) {
+            $normalizedWeight = round(($taskData['weight'] ?? 0) / $totalWeight * 100, 2);
+
+            if (!empty($taskData['id'])) {
+                // Update existing task
+                $task = Task::find($taskData['id']);
+                if ($task) {
                     $task->update([
                         'title' => $taskData['title'],
                         'description' => $taskData['description'] ?? '',
@@ -346,44 +417,54 @@ class ProjectController extends Controller
                         'weight' => $normalizedWeight,
                     ]);
 
-                    // 🔄 Only keep developers still on project
+                    // Sync task developers with project developers
                     $validDevelopers = array_intersect(
                         $taskData['developer_ids'] ?? [],
-                        $data['developer_ids']
+                        $data['developer_ids'] ?? []
                     );
-
                     $task->developers()->sync($validDevelopers);
-                    $keptTaskIds[] = $task->id;
-
-                } else {
-                    // ➕ Create new task
-                    $task = $project->tasks()->create([
-                        'title' => $taskData['title'],
-                        'description' => $taskData['description'] ?? '',
-                        'task_type' => $taskData['task_type'],
-                        'weight' => $normalizedWeight,
-                        'status' => 'New'
-                    ]);
-
-                    $task->developers()->sync($taskData['developer_ids'] ?? []);
+                    
                     $keptTaskIds[] = $task->id;
                 }
+            } else {
+                // Create new task
+                $task = $project->tasks()->create([
+                    'title' => $taskData['title'],
+                    'description' => $taskData['description'] ?? '',
+                    'task_type' => $taskData['task_type'],
+                    'weight' => $normalizedWeight,
+                    'status' => 'New'
+                ]);
+
+                $task->developers()->sync($taskData['developer_ids'] ?? []);
+                $keptTaskIds[] = $task->id;
             }
+        }
 
-            // 🧹 Delete tasks that are no longer in form
-            $toDelete = array_diff($existingTaskIds, $keptTaskIds);
-            if (!empty($toDelete)) {
-                Task::destroy($toDelete);
+        // Delete removed tasks
+        $toDelete = array_diff($existingTaskIds, $keptTaskIds);
+        if (!empty($toDelete)) {
+            Task::destroy($toDelete);
+        }
+
+        // Cleanup: Remove removed developers from all tasks
+        if (!empty($removedDevelopers)) {
+            foreach ($removedDevelopers as $devId) {
+                DB::table('task_user')
+                    ->whereIn('task_id', $project->tasks()->pluck('id')->toArray())
+                    ->where('user_id', $devId)
+                    ->delete();
             }
+        }
 
-            // Update project progress
-            $this->updateProjectProgress($project);
-        });
+        // Update project progress
+        $this->updateProjectProgress($project);
+    });
 
-        return redirect()
-            ->route('projects.index', $project->id)
-            ->with('success', 'Project updated successfully!');
-    }
+    return redirect()
+        ->route('projects.index')
+        ->with('success', 'Project updated successfully!');
+}
 
     // ======================
     //  DESTROY
@@ -421,22 +502,59 @@ class ProjectController extends Controller
         return back()->with('success', 'Project accepted successfully!');
     }
 
-    public function decline(Project $project)
-    {
-        $user = auth()->user();
+   public function decline(Project $project)
+{
+    $user = auth()->user();
 
-        if (!$project->developers()->where('user_id', $user->id)->exists()) {
-            abort(403, 'You are not assigned to this project.');
-        }
+    if (!$project->developers()->where('user_id', $user->id)->exists()) {
+        abort(403, 'You are not assigned to this project.');
+    }
 
+    DB::transaction(function () use ($project, $user) {
+        \Log::info('User declining project:', [
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'project_id' => $project->id,
+        ]);
+
+        // Remove from project developers
         $project->developers()->detach($user->id);
-
+        
+        // Remove from project chat
+        $chat = Chat::where('project_id', $project->id)->where('type', 'group')->first();
+        if ($chat) {
+            // Remove user from chat participants
+            $chat->users()->detach($user->id);
+            
+            // Double-check removal with direct DB query
+            DB::table('chat_user')
+                ->where('chat_id', $chat->id)
+                ->where('user_id', $user->id)
+                ->delete();
+        }
+        
+        // Remove from all project tasks
+        DB::table('task_user')
+            ->whereIn('task_id', $project->tasks()->pluck('id')->toArray())
+            ->where('user_id', $user->id)
+            ->delete();
+        
+        // Update project status if no developers left
         if ($project->developers()->count() === 0) {
             $project->update(['status' => 'Pending']);
         }
+        
+        // Update project progress
+        $this->updateProjectProgress($project);
+        
+        \Log::info('User successfully declined project:', [
+            'user_id' => $user->id,
+            'remaining_developers' => $project->developers()->count(),
+        ]);
+    });
 
-        return back()->with('success', 'You have declined this project.');
-    }
+    return back()->with('success', 'You have declined this project.');
+}
 
     // ======================
     //  TASK MANAGEMENT - NEW METHODS

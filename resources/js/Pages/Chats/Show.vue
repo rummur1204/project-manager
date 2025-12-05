@@ -166,9 +166,9 @@ const openChat = (chatId) => router.visit(`/chats/${chatId}`)
               </div>
               
               <!-- Chat type/description -->
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <!-- <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {{ getChatDescription(chat) }}
-              </p>
+              </p> -->
             </div>
 
             <div v-if="!chats.length" class="p-6 text-center text-gray-400 dark:text-gray-500">

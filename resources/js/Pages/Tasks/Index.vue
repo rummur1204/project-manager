@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch,onMounted } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import Layout from '../Dashboard/Layout.vue'
 import { Trash2, Send, Edit2 } from 'lucide-vue-next'
@@ -21,7 +21,31 @@ const progress = computed(() => {
 const newComment = ref({})
 const editTask = ref({})
 
-// Methods
+// Emit progress updates to parent window (for project index page)
+const emitProgressUpdate = () => {
+  window.dispatchEvent(new CustomEvent('task-progress-updated', {
+    detail: {
+      projectId: project.value.id,
+      progress: progress.value,
+      tasks: tasks.value
+    }
+  }))
+}
+
+// Watch for task status changes
+watch(
+  () => tasks.value.map(t => t.status),
+  () => {
+    emitProgressUpdate()
+  },
+  { deep: true }
+)
+
+// Initialize progress update
+onMounted(() => {
+  emitProgressUpdate()
+})
+
 const addComment = async (taskId) => {
   if (!newComment.value[taskId]) return
 
@@ -33,7 +57,7 @@ const addComment = async (taskId) => {
 
     // If your backend returns the new comment object
     const newCommentData = response?.props?.comment || {
-      id: Date.now(), // temporary ID if backend doesn't return
+      id: Date.now(),
       message: newComment.value[taskId],
       user: authUser.value,
     }
@@ -51,15 +75,28 @@ const addComment = async (taskId) => {
   }
 }
 
-
 const toggleStatus = async (task) => {
   try {
+    const oldStatus = task.status
     task.status = task.status === 'Completed' ? 'In Progress' : 'Completed'
+    
+    // Emit progress update before making the request
+    emitProgressUpdate()
+    
     await router.patch(`/projects/${project.value.id}/tasks/${task.id}/toggle`, {}, {
       preserveScroll: true,
       onSuccess: (page) => {
-        if (page.props.progress !== undefined) project.value.progress = page.props.progress
+        if (page.props.progress !== undefined) {
+          project.value.progress = page.props.progress
+          // Emit progress update again after successful API call
+          emitProgressUpdate()
+        }
       },
+      onError: () => {
+        // Revert status if there's an error
+        task.status = oldStatus
+        emitProgressUpdate()
+      }
     })
   } catch (error) {
     console.error(error)
@@ -68,7 +105,11 @@ const toggleStatus = async (task) => {
 
 const deleteTask = (taskId) => {
   if (!confirm('Are you sure you want to delete this task?')) return
-  router.delete(`/projects/${project.value.id}/tasks/${taskId}`)
+  router.delete(`/projects/${project.value.id}/tasks/${taskId}`, {
+    onSuccess: () => {
+      emitProgressUpdate()
+    }
+  })
 }
 
 const startEdit = (task) => {
@@ -78,7 +119,12 @@ const startEdit = (task) => {
 const saveEdit = async (taskId) => {
   const data = editTask.value[taskId]
   try {
-    const response = await router.put(`/projects/${project.value.id}/tasks/${taskId}`, data, { preserveScroll: true })
+    const response = await router.put(`/projects/${project.value.id}/tasks/${taskId}`, data, { 
+      preserveScroll: true,
+      onSuccess: () => {
+        emitProgressUpdate()
+      }
+    })
 
     const taskIndex = tasks.value.findIndex(t => t.id === taskId)
     if (taskIndex !== -1) tasks.value[taskIndex] = { ...tasks.value[taskIndex], ...data }

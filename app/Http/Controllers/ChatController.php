@@ -14,23 +14,45 @@ class ChatController extends Controller
     {
         $user = auth()->user();
 
+        // Filter out project chats where developer hasn't accepted
         $chats = Chat::with(['project', 'users', 'latestMessage'])
             ->whereHas('users', fn($q) => $q->where('user_id', $user->id))
-            ->withCount(['messages as unread_count' => function ($query) use ($user) {
-                $query->where('user_id', '!=', $user->id)
-                    ->where('read_at', null);
-            }])
-            ->orderByDesc(function ($query) {
-                $query->select('created_at')
-                    ->from('messages')
-                    ->whereColumn('chat_id', 'chats.id')
-                    ->latest()
-                    ->limit(1);
+            ->get()
+            ->filter(function ($chat) use ($user) {
+                // Skip check for private chats
+                if ($chat->type !== 'group') {
+                    return true;
+                }
+                
+                // For group chats, check if user is a developer who hasn't accepted
+                if ($chat->project && $user->hasRole('Developer')) {
+                    $projectUser = $chat->project->users()->where('user_id', $user->id)->first();
+                    $isDeveloper = $projectUser && $user->hasRole('Developer');
+                    $hasAccepted = $projectUser && $projectUser->pivot->accepted;
+                    
+                    // If developer hasn't accepted, don't show this chat
+                    return !($isDeveloper && !$hasAccepted);
+                }
+                
+                return true;
             })
-            ->get();
+            ->values(); // Reset keys after filtering
+
+        // Get unread count for remaining chats
+        $chats->each(function ($chat) use ($user) {
+            $chat->unread_count = $chat->messages()
+                ->where('user_id', '!=', $user->id)
+                ->where('read_at', null)
+                ->count();
+        });
+
+        // Sort by latest message
+        $sortedChats = $chats->sortByDesc(function ($chat) {
+            return $chat->latestMessage ? $chat->latestMessage->created_at : $chat->created_at;
+        })->values();
 
         return inertia('Chats/Show', [
-            'chats' => $chats,
+            'chats' => $sortedChats,
             'auth' => [
                 'user' => [
                     'id' => $user->id,
@@ -50,24 +72,41 @@ class ChatController extends Controller
 
         $chats = Chat::with(['project', 'users', 'messages.user', 'latestMessage'])
             ->whereHas('users', fn($q) => $q->where('user_id', $user->id))
-            ->withCount(['messages as unread_count' => function ($query) use ($user) {
-                $query->where('user_id', '!=', $user->id)
-                    ->where('read_at', null);
-            }])
-            ->orderByDesc(function ($query) {
-                $query->select('created_at')
-                    ->from('messages')
-                    ->whereColumn('chat_id', 'chats.id')
-                    ->latest()
-                    ->limit(1);
-            })
             ->get()
+            ->filter(function ($chat) use ($user) {
+                // Skip check for private chats
+                if ($chat->type !== 'group') {
+                    return true;
+                }
+                
+                // For group chats, check if user is a developer who hasn't accepted
+                if ($chat->project && $user->hasRole('Developer')) {
+                    $projectUser = $chat->project->users()->where('user_id', $user->id)->first();
+                    $isDeveloper = $projectUser && $user->hasRole('Developer');
+                    $hasAccepted = $projectUser && $projectUser->pivot->accepted;
+                    
+                    // If developer hasn't accepted, don't show this chat
+                    return !($isDeveloper && !$hasAccepted);
+                }
+                
+                return true;
+            })
             ->map(function ($chat) use ($user) {
                 $chat->display_name = $chat->type === 'group'
                     ? ($chat->project?->title ?? 'Group Chat')
                     : $chat->users->where('id', '!=', $user->id)->first()?->name;
+                    
+                $chat->unread_count = $chat->messages()
+                    ->where('user_id', '!=', $user->id)
+                    ->where('read_at', null)
+                    ->count();
+                    
                 return $chat;
-            });
+            })
+            ->sortByDesc(function ($chat) {
+                return $chat->latestMessage ? $chat->latestMessage->created_at : $chat->created_at;
+            })
+            ->values();
 
         return response()->json($chats);
     }
@@ -76,14 +115,19 @@ class ChatController extends Controller
     {
         $user = auth()->user();
 
-        // Check if user is a developer on this project (if project exists)
-        if ($project && $project->id) {
-            $projectUser = $project->users()->where('user_id', $user->id)->first();
+        // Check if user is part of the chat
+        if (!$chat->users()->where('user_id', $user->id)->exists()) {
+            abort(403, 'You are not part of this chat.');
+        }
+
+        // For group chats, check if developer has accepted the project
+        if ($chat->type === 'group' && $chat->project) {
+            $projectUser = $chat->project->users()->where('user_id', $user->id)->first();
             $isDeveloper = $projectUser && $user->hasRole('Developer');
             $hasAccepted = $projectUser && $projectUser->pivot->accepted;
 
             if ($isDeveloper && !$hasAccepted) {
-                abort(403, 'You cannot access this chat until you accept this project.');
+                abort(403, 'You cannot access this chat until you accept the project.');
             }
         }
 
@@ -95,24 +139,42 @@ class ChatController extends Controller
 
         $chat->load(['messages.user', 'project', 'users']);
 
-        // Get all chats with unread counts
+        // Get all chats (filtered for unaccepted developers)
         $chats = Chat::with(['project', 'users', 'latestMessage'])
             ->whereHas('users', fn($q) => $q->where('user_id', $user->id))
-            ->withCount(['messages as unread_count' => function ($query) use ($user) {
-                $query->where('user_id', '!=', $user->id)
-                    ->where('read_at', null);
-            }])
-            ->orderByDesc(function ($query) {
-                $query->select('created_at')
-                    ->from('messages')
-                    ->whereColumn('chat_id', 'chats.id')
-                    ->latest()
-                    ->limit(1);
+            ->get()
+            ->filter(function ($chatItem) use ($user) {
+                if ($chatItem->type !== 'group') {
+                    return true;
+                }
+                
+                if ($chatItem->project && $user->hasRole('Developer')) {
+                    $projectUser = $chatItem->project->users()->where('user_id', $user->id)->first();
+                    $isDeveloper = $projectUser && $user->hasRole('Developer');
+                    $hasAccepted = $projectUser && $projectUser->pivot->accepted;
+                    
+                    return !($isDeveloper && !$hasAccepted);
+                }
+                
+                return true;
             })
-            ->get();
+            ->values();
+
+        // Calculate unread counts
+        $chats->each(function ($chatItem) use ($user) {
+            $chatItem->unread_count = $chatItem->messages()
+                ->where('user_id', '!=', $user->id)
+                ->where('read_at', null)
+                ->count();
+        });
+
+        // Sort by latest message
+        $sortedChats = $chats->sortByDesc(function ($chatItem) {
+            return $chatItem->latestMessage ? $chatItem->latestMessage->created_at : $chatItem->created_at;
+        })->values();
 
         return inertia('Chats/Show', [
-            'chats' => $chats,
+            'chats' => $sortedChats,
             'chat' => $chat,
             'auth' => [
                 'user' => [
@@ -134,9 +196,28 @@ class ChatController extends Controller
             'message' => 'required|string',
         ]);
 
+        $user = auth()->user();
+        $chat = Chat::findOrFail($data['chat_id']);
+
+        // Check if user can send messages to this chat
+        if (!$chat->users()->where('user_id', $user->id)->exists()) {
+            abort(403, 'You are not part of this chat.');
+        }
+
+        // For group chats, check if developer has accepted
+        if ($chat->type === 'group' && $chat->project) {
+            $projectUser = $chat->project->users()->where('user_id', $user->id)->first();
+            $isDeveloper = $projectUser && $user->hasRole('Developer');
+            $hasAccepted = $projectUser && $projectUser->pivot->accepted;
+
+            if ($isDeveloper && !$hasAccepted) {
+                abort(403, 'You cannot send messages until you accept the project.');
+            }
+        }
+
         $message = Message::create([
             'chat_id' => $data['chat_id'],
-            'user_id' => auth()->id(),
+            'user_id' => $user->id,
             'message' => $data['message'],
         ]);
 
@@ -145,12 +226,30 @@ class ChatController extends Controller
 
     public function store(Request $request, Chat $chat)
     {
+        $user = auth()->user();
+
+        // Check if user can send messages to this chat
+        if (!$chat->users()->where('user_id', $user->id)->exists()) {
+            abort(403, 'You are not part of this chat.');
+        }
+
+        // For group chats, check if developer has accepted
+        if ($chat->type === 'group' && $chat->project) {
+            $projectUser = $chat->project->users()->where('user_id', $user->id)->first();
+            $isDeveloper = $projectUser && $user->hasRole('Developer');
+            $hasAccepted = $projectUser && $projectUser->pivot->accepted;
+
+            if ($isDeveloper && !$hasAccepted) {
+                abort(403, 'You cannot send messages until you accept the project.');
+            }
+        }
+
         $validated = $request->validate([
             'message' => 'required|string|max:2000',
         ]);
 
         $message = $chat->messages()->create([
-            'user_id' => auth()->id(),
+            'user_id' => $user->id,
             'message' => $validated['message'],
         ]);
 
@@ -168,18 +267,35 @@ class ChatController extends Controller
         return redirect()->route('chats.show', $chat->id);
     }
 
-    // New method to get unread count for the sidebar
     public function getUnreadCount()
     {
         $user = auth()->user();
         
         $unreadCount = Chat::whereHas('users', fn($q) => $q->where('user_id', $user->id))
-            ->withCount(['messages as unread_messages' => function ($query) use ($user) {
-                $query->where('user_id', '!=', $user->id)
-                    ->where('read_at', null);
-            }])
             ->get()
-            ->sum('unread_messages');
+            ->filter(function ($chat) use ($user) {
+                // Skip check for private chats
+                if ($chat->type !== 'group') {
+                    return true;
+                }
+                
+                // For group chats, check if user is a developer who hasn't accepted
+                if ($chat->project && $user->hasRole('Developer')) {
+                    $projectUser = $chat->project->users()->where('user_id', $user->id)->first();
+                    $isDeveloper = $projectUser && $user->hasRole('Developer');
+                    $hasAccepted = $projectUser && $projectUser->pivot->accepted;
+                    
+                    return !($isDeveloper && !$hasAccepted);
+                }
+                
+                return true;
+            })
+            ->sum(function ($chat) use ($user) {
+                return $chat->messages()
+                    ->where('user_id', '!=', $user->id)
+                    ->where('read_at', null)
+                    ->count();
+            });
 
         return response()->json(['unread_count' => $unreadCount]);
     }

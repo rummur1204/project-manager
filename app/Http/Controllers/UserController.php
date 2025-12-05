@@ -3,116 +3,99 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
-    // 🧭 List all users
- public function index()
-{ 
-    $users = User::with('roles')->get()->map(function ($user) {
-        return [
-            'id'    => $user->id,
-            'name'  => $user->name,
-            'email' => $user->email,
-            'role'  => $user->getRoleNames()->implode(', ') ?: '—',
-        ];
-    });
-
-    return inertia('Settings/Users/Index', [
-        'users' => $users,
-        'tab' => 'users'
-    ]);
-}
-
-
-
-    // 🆕 Create user form
-    public function create()
-    {
-        $roles = Role::pluck('name');
-
-        return Inertia::render('Settings/Users/Create', [
-            'roles' => $roles,
-        ]);
-    }
-
-    // 💾 Store new user
+    // ======================
+    //  STORE (Create User)
+    // ======================
     public function store(Request $request)
     {
-        $data = $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => 'required|string|exists:roles,name',
         ]);
 
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-        ]);
+        DB::beginTransaction();
+        try {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+            ]);
 
-        $user->assignRole($data['role']);
-return redirect()->route('settings.index', ['tab' => 'users'])
-    ->with('success', 'User created successfully');
+            $user->assignRole($validated['role']);
+            
+            DB::commit();
 
+            return redirect()->back()->with('success', 'User created successfully!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to create user: ' . $e->getMessage());
+        }
     }
 
-    // ✏️ Edit user form
-    public function edit(User $user)
-    {
-        $roles = Role::pluck('name');
-        $user->load('roles');
-
-        return Inertia::render('Settings/Users/Edit', [
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->roles->pluck('name')->first(),
-            ],
-            'roles' => $roles,
-        ]);
-    }
-
-    // 🔄 Update user
+    // ======================
+    //  UPDATE (Edit User)
+    // ======================
     public function update(Request $request, User $user)
     {
-        $data = $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'password' => 'nullable|string|min:6',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
             'role' => 'required|string|exists:roles,name',
         ]);
 
-        $user->update([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => $data['password'] ? Hash::make($data['password']) : $user->password,
-        ]);
+        DB::beginTransaction();
+        try {
+            $user->name = $validated['name'];
+            $user->email = $validated['email'];
+            
+            if (!empty($validated['password'])) {
+                $user->password = Hash::make($validated['password']);
+            }
+            
+            $user->save();
+            
+            // Sync roles (remove all existing, assign new)
+            $user->syncRoles([$validated['role']]);
+            
+            DB::commit();
 
-        $user->syncRoles([$data['role']]);
-
-        return redirect()->route('settings.index', ['tab' => 'users'])
-    ->with('success', 'User updated successfully');
-
+            return redirect()->back()->with('success', 'User updated successfully!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to update user: ' . $e->getMessage());
+        }
     }
 
-    // 🗑️ Delete user
+    // ======================
+    //  DESTROY (Delete User)
+    // ======================
     public function destroy(User $user)
     {
-        $user->delete();
-
-return redirect()->route('settings.index', ['tab' => 'users'])
-    ->with('success', 'User deleted successfully');
+        // Prevent deleting yourself
+        if ($user->id === auth()->id()) {
+            return redirect()->back()->with('error', 'You cannot delete your own account.');
+        }
+        
+        DB::beginTransaction();
+        try {
+            $user->delete();
+            DB::commit();
+            
+            return redirect()->back()->with('success', 'User deleted successfully!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to delete user: ' . $e->getMessage());
+        }
     }
-    
-
-
-
-
 }

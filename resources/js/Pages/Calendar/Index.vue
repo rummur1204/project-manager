@@ -435,6 +435,7 @@ const saveEvent = () => {
   
   form.post("/calendar", {
     preserveScroll: true,
+    preserveState: true,
     onSuccess: () => {
       closeModal();
     },
@@ -450,6 +451,7 @@ const updateEvent = () => {
   
   editForm.put(`/calendar/${editForm.id}`, {
     preserveScroll: true,
+    preserveState: true,
     onSuccess: () => {
       closeModal();
     },
@@ -476,6 +478,7 @@ const deleteEvent = (event) => {
   
   useForm({}).delete(`/calendar/${event.id}`, {
     preserveScroll: true,
+    preserveState: true,
     onSuccess: () => {
       console.log('Event deleted successfully');
       closeModal();

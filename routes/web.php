@@ -17,141 +17,158 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\ActivityTypeController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\SearchController;
 
 // Redirect root to login
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-
-
-
-
 // Only authenticated users can access these routes
 Route::middleware(['auth'])->group(function () {
-Route::middleware(['auth'])->get('/chat/list', [ChatController::class, 'list']);
-
-     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
-    // Projects (all users can view, but permissions will restrict actions)
-    Route::resource('projects', ProjectController::class);
-      Route::post('/projects/{project}/accept', [ProjectController::class, 'accept'])->name('projects.accept');
-    Route::post('/projects/{project}/decline', [ProjectController::class, 'decline'])->name('projects.decline');
-
-
-     Route::get('/projects/{project}/tasks', [TaskController::class, 'index'])->name('tasks.index');
-    Route::post('/projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');
-    Route::put('projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
-    Route::delete('/projects/{project}/tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
-    Route::patch('/projects/{project}/tasks/{task}/toggle', [TaskController::class, 'toggleStatus'])->name('tasks.toggle');
-    // Bulk task update route
-Route::patch('/projects/{project}/tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('projects.tasks.bulk-update');
-// Bulk task creation route
-Route::post('/projects/{project}/tasks/bulk-create', [ProjectController::class, 'bulkCreateTasks'])->name('projects.tasks.bulk-create');
-// Temporary debug route in web.php
-Route::patch('/projects/{project}/tasks/{task}/status', [TaskController::class, 'updateStatus'])->name('tasks.status');
-    // In web.php
-// Route::put('/projects/{project}/tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('projects.tasks.bulk-update');
-// Route::post('/projects/{project}/tasks', [ProjectController::class, 'storeTasks'])->name('projects.tasks.store');
-    // Comments
-    // Route::post('/tasks/{task}/comments', [CommentController::class, 'storeComment']);
-    // Route::put('/projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
-
-// Route::post('/projects/{project}/comments', [ProjectController::class, 'addComment'])
-//     ->name('projects.comment')
-//     ->middleware('auth');
- Route::post('/projects/{project}/comments', [ProjectCommentController::class, 'store'])
-        ->name('projects.comments.store');
-        Route::post('/tasks/{task}/comments', [TaskCommentController::class, 'store'])
-    ->name('tasks.comments.store');
-
-
-Route::get('/settings/{tab?}', [SettingsController::class, 'index'])
-        ->name('settings.index');
-    Route::prefix('settings')->group(function () {
-        Route::resource('users', UserController::class);
-        Route::resource('roles', RoleController::class);
-        Route::resource('activity-types', ActivityTypeController::class)
-        ->except(['show']);
-    });
- Route::get('/chat/list', [ChatController::class, 'list']);
-    // Route::get('/chats/{chat}', [ChatController::class, 'show'])->name('chats.show');
-    Route::post('/chats/{chat}/messages', [ChatController::class, 'store'])->name('chats.store');
-    // Route::post('/chat/private', [ChatController::class, 'createPrivateChat'])->name('chat.private');
-    // Route::get('/users/list', [UserController::class, 'chatList']);
-    // Route::post('/chat/message', [ChatController::class, 'sendMessage']);
- Route::get('/chats', [ChatController::class, 'index'])->name('chats.index');
-    Route::get('/chats/{chat}', [ChatController::class, 'show'])->name('chats.show');
-    Route::post('/chats', [ChatController::class, 'store'])->name('chats.store');
-    // Add this route for getting unread count
-Route::get('/chats/unread-count', [ChatController::class, 'getUnreadCount'])
-    ->middleware('auth')
-    ->name('chats.unread-count');
-    // Route::post('/chats/{chat}/messages', [MessageController::class, 'store'])->name('chats.messages.store');
-    // Route::get('/users/list', [UserController::class, 'list'])->middleware('auth');
-
-//  Route::get('/calendar', [EventController::class, 'index'])->name('calendar.index');
-// Route::post('/calendar', [EventController::class, 'store'])->name('calendar.store');
-// // Route::put('/calendar/{event}', [EventController::class, 'update'])->name('calendar.update');
-// // Route::patch('/calendar/{event}/update-date', [EventController::class, 'updateDate'])->name('calendar.update-date');
-// // Route::delete('/calendar/{event}', [EventController::class, 'destroy'])->name('calendar.destroy');
-
-Route::get('/calendar', [EventController::class, 'index'])->name('calendar.index');
-Route::post('/calendar', [EventController::class, 'store'])->name('calendar.store');
-Route::put('/calendar/{event}', [EventController::class, 'update'])->name('calendar.update');
-Route::delete('/calendar/{event}', [EventController::class, 'destroy'])->name('calendar.destroy');
-
-// Route to fetch tasks for a project
-// Route::get('/projects/{project}/tasks', [EventController::class, 'getProjectTasks']);
-
-
-    // Route::get('/settings/activity-types', 
-    //     [ActivityTypeController::class, 'index'])
-    //     ->middleware('permission:view activity types')
-    //     ->name('activity-types.index');
-
-    // Route::post('/settings/activity-types', 
-    //     [ActivityTypeController::class, 'store'])
-    //     ->middleware('permission:create activity types')
-    //     ->name('activity-types.store');
-
-    // Route::put('/settings/activity-types/{activityType}', 
-    //     [ActivityTypeController::class, 'update'])
-    //     ->middleware('permission:edit activity types')
-    //     ->name('activity-types.update');
-
-    // Route::delete('/settings/activity-types/{activityType}', 
-    //     [ActivityTypeController::class, 'destroy'])
-    //     ->middleware('permission:delete activity types')
-    //     ->name('activity-types.destroy');
-
-
-      // Activities
-Route::get('/activities', [ActivityController::class, 'index'])->name('activities.index');
-Route::get('/activities/create', [ActivityController::class, 'create'])->name('activities.create');
-Route::post('/activities', [ActivityController::class, 'store'])->name('activities.store');
-
-
-Route::get('/activities/{activity}/edit', [ActivityController::class, 'edit'])->name('activities.edit');
-Route::put('/activities/{activity}', [ActivityController::class, 'update'])->name('activities.update');
-Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->name('activities.destroy');
-
- Route::post('/activities/{activity}/accept', [ActivityController::class, 'accept'])->name('activities.accept');
-    Route::post('/activities/{activity}/complete', [ActivityController::class, 'complete'])->name('activities.complete');
-
-    // In your web.php, add this line in the activities section:
-Route::post('/projects/{project}/activities', [ActivityController::class, 'store'])->name('projects.activities.store');
-// Add this route for activity status updates
-Route::patch('/activities/{activity}/status', [ActivityController::class, 'updateStatus'])
-    ->name('activities.status');
-
-      Route::get('/search', [SearchController::class, 'index'])->name('search');
-    Route::get('/api/search/quick', [SearchController::class, 'quickSearch'])->name('api.search.quick');
-
-    // Profile
+    
+    // Dashboard - accessible to all authenticated users
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Profile - accessible to all authenticated users
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    
+    // =============================================
+    // PROJECTS SECTION - PERMISSION PROTECTED ROUTES
+    // =============================================
+    
+    // CRITICAL: CREATE route must come BEFORE SHOW route with {project} parameter
+    Route::middleware(['can:create projects'])->group(function () {
+        Route::get('/projects/create', [ProjectController::class, 'create'])->name('projects.create');
+        Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
+    });
+    
+    // View projects - accessible to all authenticated users
+    Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
+    
+    // Project show route - accessible to all authenticated users
+    Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+    
+    // Project edit, update, delete routes
+    Route::middleware(['can:edit projects'])->group(function () {
+        Route::get('/projects/{project}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
+        Route::put('/projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
+        Route::post('/projects/{project}/accept', [ProjectController::class, 'accept'])->name('projects.accept');
+        Route::post('/projects/{project}/decline', [ProjectController::class, 'decline'])->name('projects.decline');
+        Route::post('/projects/{project}/tasks/bulk-create', [ProjectController::class, 'bulkCreateTasks'])->name('projects.tasks.bulk-create');
+  
+    
+    Route::middleware(['can:delete projects'])->group(function () {
+        Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
+    });
+     });
+    // =============================================
+    // TASKS SECTION - PERMISSION PROTECTED ROUTES
+    // =============================================
+    
+    // View tasks - accessible if user can view projects
+    Route::get('/projects/{project}/tasks', [TaskController::class, 'index'])->name('tasks.index');
+    
+    // Create, edit, update, delete tasks - protected by permissions
+    Route::middleware(['can:create tasks'])->group(function () {
+        Route::post('/projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');
+    });
+    
+    Route::middleware(['can:edit tasks'])->group(function () {
+        Route::put('/projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
+        Route::patch('/projects/{project}/tasks/{task}/toggle', [TaskController::class, 'toggleStatus'])->name('tasks.toggle');
+        Route::patch('/projects/{project}/tasks/{task}/status', [TaskController::class, 'updateStatus'])->name('tasks.status');
+        Route::patch('/projects/{project}/tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('projects.tasks.bulk-update');
+    });
+    
+    Route::middleware(['can:delete tasks'])->group(function () {
+        Route::delete('/projects/{project}/tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
+    });
+    
+    // =============================================
+    // COMMENTS SECTION - ACCESSIBLE TO ALL AUTHENTICATED USERS
+    // =============================================
+    
+    Route::post('/projects/{project}/comments', [ProjectCommentController::class, 'store'])->name('projects.comments.store');
+    Route::post('/tasks/{task}/comments', [TaskCommentController::class, 'store'])->name('tasks.comments.store');
+    
+    // =============================================
+    // CALENDAR SECTION - PERMISSION PROTECTED ROUTES
+    // =============================================
+    
+    Route::middleware(['can:view events'])->group(function () {
+        Route::get('/calendar', [EventController::class, 'index'])->name('calendar.index');
+        Route::post('/calendar', [EventController::class, 'store'])->name('calendar.store');
+        Route::put('/calendar/{event}', [EventController::class, 'update'])->name('calendar.update');
+        Route::delete('/calendar/{event}', [EventController::class, 'destroy'])->name('calendar.destroy');
+    });
+    
+    // =============================================
+    // CHATS SECTION - ACCESSIBLE TO ALL AUTHENTICATED USERS
+    // =============================================
+    
+    Route::get('/chat/list', [ChatController::class, 'list']);
+    Route::get('/chats', [ChatController::class, 'index'])->name('chats.index');
+    Route::get('/chats/{chat}', [ChatController::class, 'show'])->name('chats.show');
+    Route::post('/chats', [ChatController::class, 'store'])->name('chats.store');
+    Route::post('/chats/{chat}/messages', [ChatController::class, 'store'])->name('chats.store');
+    Route::get('/chats/unread-count', [ChatController::class, 'getUnreadCount'])->name('chats.unread-count');
+    
+    // =============================================
+    // ACTIVITIES SECTION - PERMISSION PROTECTED ROUTES
+    // =============================================
+    
+    Route::middleware(['can:delete activities'])->group(function () {
+        Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->name('activities.destroy');
+    });
+    
+    Route::middleware(['can:edit activities'])->group(function () {
+        Route::patch('/activities/{activity}/status', [ActivityController::class, 'updateStatus'])->name('activities.status');
+    });
+    
+    Route::post('/projects/{project}/activities', [ActivityController::class, 'store'])->name('projects.activities.store');
+    Route::put('/activities/{activity}', [ActivityController::class, 'update'])->name('activities.update');
+      
+    // =============================================
+    // SEARCH SECTION - ACCESSIBLE TO ALL AUTHENTICATED USERS
+    // =============================================
+    
+    Route::get('/search', [SearchController::class, 'index'])->name('search');
+    Route::get('/api/search/quick', [SearchController::class, 'quickSearch'])->name('api.search.quick');
+    
+    
+
+// =============================================
+// SETTINGS SECTION - PERMISSION PROTECTED ROUTES
+// =============================================
+
+// Main settings page - requires any settings permission
+Route::middleware(['can:view users,view roles,view activity types'])->group(function () {
+    Route::get('/settings/{tab?}', [SettingsController::class, 'index'])->name('settings.index');
+});
+
+// User CRUD routes - handled by UserController
+Route::middleware(['can:view users'])->prefix('settings')->group(function () {
+    Route::post('/users', [UserController::class, 'store'])->name('settings.users.store');
+    Route::put('/users/{user}', [UserController::class, 'update'])->name('settings.users.update');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('settings.users.destroy');
+});
+
+// Role CRUD routes - handled by RoleController
+Route::middleware(['can:view roles'])->prefix('settings')->group(function () {
+    Route::post('/roles', [RoleController::class, 'store'])->name('settings.roles.store');
+    Route::put('/roles/{role}', [RoleController::class, 'update'])->name('settings.roles.update');
+    Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('settings.roles.destroy');
+});
+
+// Activity Type CRUD routes - handled by ActivityTypeController
+Route::middleware(['can:view activity types'])->prefix('settings')->group(function () {
+    Route::post('/activity-types', [ActivityTypeController::class, 'store'])->name('settings.activity-types.store');
+    Route::put('/activity-types/{activityType}', [ActivityTypeController::class, 'update'])->name('settings.activity-types.update');
+    Route::delete('/activity-types/{activityType}', [ActivityTypeController::class, 'destroy'])->name('settings.activity-types.destroy');
+});
 });
 
 require __DIR__ . '/auth.php';

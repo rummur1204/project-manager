@@ -245,23 +245,60 @@ public function update(Request $request, Activity $activity)
     // ======================
     //  DESTROY
     // ======================
-    public function destroy(Activity $activity)
-    {
-        $user = auth()->user();
-        
-        if (!$user->can('delete activities')) {
-            abort(403, 'Unauthorized action.');
-        }
-        
-        // If user can't view all activities, check if they created this activity
-        if (!$user->can('view all activities') && $activity->created_by !== $user->id) {
-            abort(403, 'You can only delete your own activities.');
-        }
-
-        $activity->delete();
-
-        return redirect()->route('activities.index')->with('success', 'Activity deleted successfully!');
+    // ======================
+//  DESTROY
+// ======================
+public function destroy(Request $request, Activity $activity)
+{
+    $user = auth()->user();
+    
+    if (!$user->can('delete activities')) {
+        abort(403, 'Unauthorized action.');
     }
+    
+    // If user can't view all activities, check if they created this activity
+    if (!$user->can('view all activities') && $activity->created_by !== $user->id) {
+        abort(403, 'You can only delete your own activities.');
+    }
+
+    // Store project_id before deletion for potential redirect
+    $projectId = $activity->project_id;
+    
+    $activity->delete();
+
+    // Check if request has a referer header or a source parameter
+    $referer = $request->header('referer');
+    $source = $request->input('source', 'activities');
+    
+    // Check various indicators that we came from a project page
+    $isFromProject = false;
+    
+    // Option 1: Check referer URL
+    if ($referer && strpos($referer, '/projects/') !== false) {
+        $isFromProject = true;
+    }
+    
+    // Option 2: Check explicit source parameter (you can pass this from your frontend)
+    if ($source === 'project') {
+        $isFromProject = true;
+    }
+    
+    // Option 3: Check if there's a project_id query parameter
+    if ($request->has('project_id')) {
+        $projectId = $request->input('project_id');
+        $isFromProject = true;
+    }
+    
+    // Redirect back to project page if came from there
+    if ($isFromProject && $projectId) {
+        return redirect()->route('projects.show', $projectId)
+                         ->with('success', 'Activity deleted successfully!');
+    }
+    
+    // Default: redirect to activities index
+    return redirect()->route('activities.index')
+                     ->with('success', 'Activity deleted successfully!');
+}
 
     // ======================
     //  ACCEPT / COMPLETE

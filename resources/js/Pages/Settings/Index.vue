@@ -1,233 +1,759 @@
 <script setup>
-import { ref } from 'vue'
-import { Link, usePage, router } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
+import { usePage, router } from '@inertiajs/vue3'
 import Layout from '@/Pages/Dashboard/Layout.vue'
-import { Users, Shield, Sparkles } from 'lucide-vue-next'
+import { Users, Shield, Sparkles, X, AlertCircle } from 'lucide-vue-next'
 
-// Local tab state (NO backend reload)
+// Local tab state - purely client-side
 const tab = ref('users')
 
-// Tab switch function
-const switchTab = (name) => {
-  tab.value = name
-}
+// Modal states
+const showAddUserModal = ref(false)
+const showEditUserModal = ref(false)
+const showAddRoleModal = ref(false)
+const showEditRoleModal = ref(false)
+const showAddActivityTypeModal = ref(false)
+const showEditActivityTypeModal = ref(false)
+
+// Form data (simple objects)
+const userForm = ref({ 
+  id: null,
+  name: '', 
+  email: '', 
+  password: '', 
+  password_confirmation: '', 
+  role: '' 
+})
+
+const roleForm = ref({ 
+  id: null,
+  name: '', 
+  permissions: [] 
+})
+
+const activityTypeForm = ref({ 
+  id: null,
+  name: '' 
+})
 
 // Props from backend
 const page = usePage()
-const users = page.props.users
-const roles = page.props.roles
-const activityTypes = page.props.activityTypes
+const users = computed(() => page.props.users || [])
+const roles = computed(() => page.props.roles || [])
+const activityTypes = computed(() => page.props.activityTypes || [])
+const allPermissions = computed(() => page.props.allPermissions || [])
+
+// Flash messages
+const flash = computed(() => page.props.flash || {})
+
+// Tab switch - CLIENT-SIDE ONLY
+const switchTab = (name) => {
+  tab.value = name
+  // NO router.get() call here - this is purely client-side
+}
+
+// ===========================================
+// USER MODAL FUNCTIONS
+// ===========================================
+const openAddUserModal = () => {
+  userForm.value = { 
+    id: null,
+    name: '', 
+    email: '', 
+    password: '', 
+    password_confirmation: '', 
+    role: '' 
+  }
+  showAddUserModal.value = true
+}
+
+const openEditUserModal = (user) => {
+  userForm.value = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    password: '',
+    password_confirmation: '',
+    role: user.roles && user.roles.length > 0 ? user.roles[0].name : ''
+  }
+  showEditUserModal.value = true
+}
+
+const closeUserModals = () => {
+  showAddUserModal.value = false
+  showEditUserModal.value = false
+  userForm.value = { 
+    id: null,
+    name: '', 
+    email: '', 
+    password: '', 
+    password_confirmation: '', 
+    role: '' 
+  }
+}
+
+const submitUser = (e) => {
+  e.preventDefault()
+  
+  const formData = {
+    name: userForm.value.name,
+    email: userForm.value.email,
+    role: userForm.value.role,
+  }
+  
+  if (!userForm.value.id) {
+    // Creating new user
+    formData.password = userForm.value.password
+    formData.password_confirmation = userForm.value.password_confirmation
+    
+    router.post(route('settings.users.store'), formData, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        closeUserModals()
+      }
+    })
+  } else {
+    // Updating existing user
+    if (userForm.value.password) {
+      formData.password = userForm.value.password
+      formData.password_confirmation = userForm.value.password_confirmation
+    }
+    
+    router.put(route('settings.users.update', userForm.value.id), formData, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        closeUserModals()
+      }
+    })
+  }
+}
+
+// ===========================================
+// ROLE MODAL FUNCTIONS
+// ===========================================
+const openAddRoleModal = () => {
+  roleForm.value = { 
+    id: null,
+    name: '', 
+    permissions: [] 
+  }
+  showAddRoleModal.value = true
+}
+
+const openEditRoleModal = (role) => {
+  roleForm.value = {
+    id: role.id,
+    name: role.name,
+    permissions: role.permissions ? role.permissions.map(p => p.name) : []
+  }
+  showEditRoleModal.value = true
+}
+
+const closeRoleModals = () => {
+  showAddRoleModal.value = false
+  showEditRoleModal.value = false
+  roleForm.value = { 
+    id: null,
+    name: '', 
+    permissions: [] 
+  }
+}
+
+const submitRole = (e) => {
+  e.preventDefault()
+  
+  const formData = {
+    name: roleForm.value.name,
+    permissions: roleForm.value.permissions
+  }
+  
+  if (!roleForm.value.id) {
+    router.post(route('settings.roles.store'), formData, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        closeRoleModals()
+      }
+    })
+  } else {
+    router.put(route('settings.roles.update', roleForm.value.id), formData, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        closeRoleModals()
+      }
+    })
+  }
+}
+
+// ===========================================
+// ACTIVITY TYPE MODAL FUNCTIONS
+// ===========================================
+const openAddActivityTypeModal = () => {
+  activityTypeForm.value = { 
+    id: null,
+    name: '' 
+  }
+  showAddActivityTypeModal.value = true
+}
+
+const openEditActivityTypeModal = (activityType) => {
+  activityTypeForm.value = {
+    id: activityType.id,
+    name: activityType.name
+  }
+  showEditActivityTypeModal.value = true
+}
+
+const closeActivityTypeModals = () => {
+  showAddActivityTypeModal.value = false
+  showEditActivityTypeModal.value = false
+  activityTypeForm.value = { 
+    id: null,
+    name: '' 
+  }
+}
+
+const submitActivityType = (e) => {
+  e.preventDefault()
+  
+  const formData = {
+    name: activityTypeForm.value.name
+  }
+  
+  if (!activityTypeForm.value.id) {
+    router.post(route('settings.activity-types.store'), formData, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        closeActivityTypeModals()
+      }
+    })
+  } else {
+    router.put(route('settings.activity-types.update', activityTypeForm.value.id), formData, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        closeActivityTypeModals()
+      }
+    })
+  }
+}
+
+// ===========================================
+// DELETE FUNCTIONS
+// ===========================================
+const deleteUser = (userId) => {
+  if (confirm('Are you sure you want to delete this user?')) {
+    router.delete(route('settings.users.destroy', userId), {
+      preserveScroll: true,
+      preserveState: true
+    })
+  }
+}
+
+const deleteRole = (roleId) => {
+  if (confirm('Are you sure you want to delete this role?')) {
+    router.delete(route('settings.roles.destroy', roleId), {
+      preserveScroll: true,
+      preserveState: true
+    })
+  }
+}
+
+const deleteActivityType = (activityTypeId) => {
+  if (confirm('Are you sure you want to delete this activity type?')) {
+    router.delete(route('settings.activity-types.destroy', activityTypeId), {
+      preserveScroll: true,
+      preserveState: true
+    })
+  }
+}
+
+// ===========================================
+// HELPER FUNCTIONS
+// ===========================================
+const selectAllPermissions = () => {
+  roleForm.value.permissions = [...allPermissions.value]
+}
+
+const clearAllPermissions = () => {
+  roleForm.value.permissions = []
+}
+
+// Initialize tab from URL on page load (optional)
+const initTabFromUrl = () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const tabParam = urlParams.get('tab')
+  if (tabParam && ['users', 'roles', 'activitytypes'].includes(tabParam)) {
+    tab.value = tabParam
+  }
+}
+
+// Call this on component mount if you want URL sync
+// initTabFromUrl()
 </script>
 
 <template>
   <Layout>
-    <div class="max-w-6xl mx-auto">
-      <h1 class="text-2xl font-semibold mb-6">Settings</h1>
+    <div class="max-w-7xl mx-auto p-4 md:p-6">
+      <h1 class="text-2xl font-bold mb-6 dark:text-gray-100">Settings</h1>
 
-      <!-- Tabs -->
-      <div class="flex border-b border-gray-300 dark:border-gray-700 mb-6">
-        <button
-          @click="switchTab('users')"
-          :class="[
-            'px-6 py-3 -mb-px border-b-2',
-            tab === 'users'
-              ? 'border-indigo-600 text-indigo-600 font-semibold'
-              : 'border-transparent text-gray-600 dark:text-gray-300'
-          ]"
-        >
-          <div class="flex items-center gap-2">
-            <Users class="w-4 h-4" /> Users
+      <!-- Flash Messages -->
+      <div v-if="flash.success" class="mb-6 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
           </div>
-        </button>
+          <div class="ml-3">
+            <p class="text-sm font-medium text-green-800 dark:text-green-300">
+              {{ flash.success }}
+            </p>
+          </div>
+        </div>
+      </div>
 
-        <button
-          @click="switchTab('roles')"
-          :class="[
-            'px-6 py-3 -mb-px border-b-2',
-            tab === 'roles'
-              ? 'border-indigo-600 text-indigo-600 font-semibold'
-              : 'border-transparent text-gray-600 dark:text-gray-300'
-          ]"
-        >
-          <div class="flex items-center gap-2">
-            <Shield class="w-4 h-4" /> Roles
+      <div v-if="flash.error" class="mb-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <AlertCircle class="h-5 w-5 text-red-400" />
           </div>
-        </button>
+          <div class="ml-3">
+            <p class="text-sm font-medium text-red-800 dark:text-red-300">
+              {{ flash.error }}
+            </p>
+          </div>
+        </div>
+      </div>
 
-        <button
-          @click="switchTab('activitytypes')"
-          :class="[
-            'px-6 py-3 -mb-px border-b-2',
-            tab === 'activitytypes'
-              ? 'border-indigo-600 text-indigo-600 font-semibold'
-              : 'border-transparent text-gray-600 dark:text-gray-300'
-          ]"
-        >
-          <div class="flex items-center gap-2">
-            <Sparkles class="w-4 h-4" /> Activity Types
-          </div>
-        </button>
+      <!-- Tabs - PURELY CLIENT-SIDE -->
+      <div class="mb-8">
+        <div class="border-b border-gray-200 dark:border-gray-700">
+          <nav class="-mb-px flex space-x-8">
+            <button @click="switchTab('users')"
+                    :class="['py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200', tab === 'users' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600']">
+              <div class="flex items-center space-x-2">
+                <Users class="h-4 w-4" />
+                <span>Users</span>
+              </div>
+            </button>
+            <button @click="switchTab('roles')"
+                    :class="['py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200', tab === 'roles' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600']">
+              <div class="flex items-center space-x-2">
+                <Shield class="h-4 w-4" />
+                <span>Roles</span>
+              </div>
+            </button>
+            <button @click="switchTab('activitytypes')"
+                    :class="['py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200', tab === 'activitytypes' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600']">
+              <div class="flex items-center space-x-2">
+                <Sparkles class="h-4 w-4" />
+                <span>Activity Types</span>
+              </div>
+            </button>
+          </nav>
+        </div>
       </div>
 
       <!-- USERS TAB -->
-      <div v-if="tab === 'users'" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
-        <div class="flex justify-between mb-4">
-          <h2 class="text-lg font-semibold">Manage Users</h2>
-
-          <Link
-            href="/settings/users/create"
-            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            + New User
-          </Link>
+      <div v-if="tab === 'users'" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+        <div class="p-6 border-b dark:border-gray-700">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold dark:text-gray-100">Manage Users</h2>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Create, edit, and delete user accounts
+              </p>
+            </div>
+            <button @click="openAddUserModal" 
+                    class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+              <Users class="h-4 w-4 mr-2" />
+              New User
+            </button>
+          </div>
         </div>
 
-        <table class="w-full">
-          <thead>
-            <tr class="border-b dark:border-gray-700">
-              <th class="p-2 text-left">Name</th>
-              <th class="p-2 text-left">Email</th>
-              <th class="p-2 text-left">Role</th>
-              <th class="p-2 text-left">Actions</th>
-            </tr>
-          </thead>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+              <tr>
+                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
 
-          <tbody>
-            <tr
-              v-for="u in users"
-              :key="u.id"
-              class="border-b hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              <td class="p-2">{{ u.name }}</td>
-              <td class="p-2">{{ u.email }}</td>
-              <td class="p-2">
-                <span v-if="u.roles.length">{{ u.roles[0].name }}</span>
-                <span v-else class="text-gray-400">No Role</span>
-              </td>
-              <td class="p-2 space-x-3">
-                <Link
-                  :href="`/settings/users/${u.id}/edit`"
-                  class="text-blue-600 hover:underline"
-                >
-                  Edit
-                </Link>
-
-                <button
-                  @click="router.delete(`/settings/users/${u.id}`)"
-                  class="text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+              <tr v-for="u in users" :key="u.id"
+                  class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-150">
+                <td class="py-4 px-4">
+                  <div class="text-sm font-medium dark:text-gray-300">{{ u.name }}</div>
+                </td>
+                <td class="py-4 px-4">
+                  <div class="text-sm text-gray-600 dark:text-gray-400">{{ u.email }}</div>
+                </td>
+                <td class="py-4 px-4">
+                  <span v-if="u.roles && u.roles.length > 0" 
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
+                    {{ u.roles[0].name }}
+                  </span>
+                  <span v-else class="text-xs text-gray-400 dark:text-gray-500 italic">
+                    No Role
+                  </span>
+                </td>
+                <td class="py-4 px-4">
+                  <div class="flex items-center space-x-3">
+                    <button @click="openEditUserModal(u)"
+                            class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 text-sm font-medium">
+                      Edit
+                    </button>
+                    <span class="text-gray-300 dark:text-gray-600">|</span>
+                    <button @click="deleteUser(u.id)"
+                            class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 text-sm font-medium">
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="users.length === 0">
+                <td colspan="4" class="py-12 px-4 text-center">
+                  <div class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+                    <Users class="h-12 w-12 mb-3 opacity-50" />
+                    <p class="text-sm">No users found</p>
+                    <p class="text-xs mt-1">Click "New User" to add your first user</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- ROLES TAB -->
-      <div v-if="tab === 'roles'" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
-        <div class="flex justify-between mb-4">
-          <h2 class="text-lg font-semibold">Manage Roles</h2>
-
-          <Link
-            href="/settings/roles/create"
-            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            + New Role
-          </Link>
+      <div v-if="tab === 'roles'" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+        <div class="p-6 border-b dark:border-gray-700">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold dark:text-gray-100">Manage Roles</h2>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Create and manage roles with specific permissions
+              </p>
+            </div>
+            <button @click="openAddRoleModal" 
+                    class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+              <Shield class="h-4 w-4 mr-2" />
+              New Role
+            </button>
+          </div>
         </div>
 
-        <table class="w-full">
-          <thead>
-            <tr class="border-b dark:border-gray-700">
-              <th class="p-2 text-left">Role Name</th>
-              <th class="p-2 text-left">Permissions</th>
-              <th class="p-2 text-left">Actions</th>
-            </tr>
-          </thead>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+              <tr>
+                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role Name</th>
+                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Permissions</th>
+                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
 
-          <tbody>
-            <tr
-              v-for="role in roles"
-              :key="role.id"
-              class="border-b hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              <td class="p-2">{{ role.name }}</td>
-
-              <td class="p-2 text-sm">
-                <span v-if="role.permissions.length">
-                  {{ role.permissions.map(p => p.name).join(', ') }}
-                </span>
-                <span v-else class="text-gray-400">No permissions</span>
-              </td>
-
-              <td class="p-2 space-x-3">
-                <Link
-                  :href="`/settings/roles/${role.id}/edit`"
-                  class="text-blue-600 hover:underline"
-                >
-                  Edit
-                </Link>
-
-                <button
-                  @click="router.delete(`/settings/roles/${role.id}`)"
-                  class="text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+              <tr v-for="role in roles" :key="role.id"
+                  class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-150">
+                <td class="py-4 px-4">
+                  <div class="text-sm font-medium dark:text-gray-300">{{ role.name }}</div>
+                </td>
+                <td class="py-4 px-4">
+                  <div v-if="role.permissions && role.permissions.length > 0" class="flex flex-wrap gap-1">
+                    <span v-for="permission in role.permissions.slice(0, 3)" :key="permission.id"
+                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                      {{ permission.name }}
+                    </span>
+                    <span v-if="role.permissions.length > 3" 
+                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400">
+                      +{{ role.permissions.length - 3 }} more
+                    </span>
+                  </div>
+                  <span v-else class="text-xs text-gray-400 dark:text-gray-500 italic">
+                    No permissions
+                  </span>
+                </td>
+                <td class="py-4 px-4">
+                  <div class="flex items-center space-x-3">
+                    <button @click="openEditRoleModal(role)"
+                            class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 text-sm font-medium">
+                      Edit
+                    </button>
+                    <span class="text-gray-300 dark:text-gray-600">|</span>
+                    <button @click="deleteRole(role.id)"
+                            class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 text-sm font-medium">
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="roles.length === 0">
+                <td colspan="3" class="py-12 px-4 text-center">
+                  <div class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+                    <Shield class="h-12 w-12 mb-3 opacity-50" />
+                    <p class="text-sm">No roles found</p>
+                    <p class="text-xs mt-1">Click "New Role" to add your first role</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- ACTIVITY TYPES TAB -->
-      <div v-if="tab === 'activitytypes'" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
-        <div class="flex justify-between mb-4">
-          <h2 class="text-lg font-semibold">Activity Types</h2>
-
-          <Link
-            href="/settings/activity-types/create"
-            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            + New Activity Type
-          </Link>
+      <div v-if="tab === 'activitytypes'" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+        <div class="p-6 border-b dark:border-gray-700">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold dark:text-gray-100">Activity Types</h2>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Manage different types of activities for your projects
+              </p>
+            </div>
+            <button @click="openAddActivityTypeModal" 
+                    class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+              <Sparkles class="h-4 w-4 mr-2" />
+              New Activity Type
+            </button>
+          </div>
         </div>
 
-        <table class="w-full">
-          <thead>
-            <tr class="border-b dark:border-gray-700">
-              <th class="p-2 text-left">Name</th>
-              <th class="p-2 text-left">Actions</th>
-            </tr>
-          </thead>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+              <tr>
+                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
 
-          <tbody>
-            <tr
-              v-for="at in activityTypes"
-              :key="at.id"
-              class="border-b hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              <td class="p-2">{{ at.name }}</td>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+              <tr v-for="at in activityTypes" :key="at.id"
+                  class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-150">
+                <td class="py-4 px-4">
+                  <div class="text-sm font-medium dark:text-gray-300">{{ at.name }}</div>
+                </td>
+                <td class="py-4 px-4">
+                  <div class="flex items-center space-x-3">
+                    <button @click="openEditActivityTypeModal(at)"
+                            class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 text-sm font-medium">
+                      Edit
+                    </button>
+                    <span class="text-gray-300 dark:text-gray-600">|</span>
+                    <button @click="deleteActivityType(at.id)"
+                            class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 text-sm font-medium">
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="activityTypes.length === 0">
+                <td colspan="2" class="py-12 px-4 text-center">
+                  <div class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+                    <Sparkles class="h-12 w-12 mb-3 opacity-50" />
+                    <p class="text-sm">No activity types found</p>
+                    <p class="text-xs mt-1">Click "New Activity Type" to add your first type</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-              <td class="p-2 space-x-3">
-                <Link
-                  :href="`/settings/activity-types/${at.id}/edit`"
-                  class="text-blue-600 hover:underline"
-                >
-                  Edit
-                </Link>
+    <!-- =========================================== -->
+    <!-- MODALS (remain exactly the same) -->
+    <!-- =========================================== -->
 
-                <button
-                  @click="router.delete(`/settings/activity-types/${at.id}`)"
-                  class="text-red-600 hover:underline"
-                >
-                  Delete
+    <!-- Add/Edit User Modal -->
+    <div v-if="showAddUserModal || showEditUserModal" 
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+         @click.self="closeUserModals"
+         @keydown.escape="closeUserModals">
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {{ userForm.id ? 'Edit User' : 'Create New User' }}
+          </h3>
+          <button @click="closeUserModals" 
+                  class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitUser" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
+            <input v-model="userForm.name" type="text" required 
+                   class="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 dark:bg-gray-600 dark:text-white" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
+            <input v-model="userForm.email" type="email" required 
+                   class="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 dark:bg-gray-600 dark:text-white" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role *</label>
+            <select v-model="userForm.role" required
+                    class="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 dark:bg-gray-600 dark:text-white">
+              <option value="">Select a role</option>
+              <option v-for="role in roles" :key="role.id" :value="role.name">
+                {{ role.name }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Password {{ userForm.id ? '(Optional)' : '*' }}
+            </label>
+            <input v-model="userForm.password" type="password" 
+                   :required="!userForm.id"
+                   class="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 dark:bg-gray-600 dark:text-white" />
+            <p v-if="userForm.id" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Leave empty to keep current password
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Confirm Password {{ userForm.id ? '(Optional)' : '*' }}
+            </label>
+            <input v-model="userForm.password_confirmation" type="password" 
+                   :required="!userForm.id"
+                   class="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 dark:bg-gray-600 dark:text-white" />
+          </div>
+
+          <div class="flex justify-end space-x-3 mt-6">
+            <button type="button" @click="closeUserModals" 
+                    class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+              Cancel
+            </button>
+            <button type="submit" 
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">
+              {{ userForm.id ? 'Update' : 'Create' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add/Edit Role Modal -->
+    <div v-if="showAddRoleModal || showEditRoleModal" 
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+         @click.self="closeRoleModals"
+         @keydown.escape="closeRoleModals">
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {{ roleForm.id ? 'Edit Role' : 'Create New Role' }}
+          </h3>
+          <button @click="closeRoleModals" 
+                  class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitRole" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role Name *</label>
+            <input v-model="roleForm.name" type="text" required 
+                   class="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 dark:bg-gray-600 dark:text-white" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Permissions</label>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 max-h-60 overflow-y-auto p-3 border rounded-md dark:border-gray-600 bg-gray-50 dark:bg-gray-900">
+              <div v-for="permission in allPermissions" :key="permission" 
+                   class="flex items-center space-x-2">
+                <input type="checkbox" :id="`perm_${permission}`" :value="permission" 
+                       v-model="roleForm.permissions"
+                       class="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400" />
+                <label :for="`perm_${permission}`" 
+                       class="text-sm dark:text-gray-300 truncate cursor-pointer select-none">
+                  {{ permission }}
+                </label>
+              </div>
+            </div>
+            <div class="flex justify-between items-center mt-2">
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                Selected: {{ roleForm.permissions.length }} permission(s)
+              </p>
+              <div class="space-x-2">
+                <button type="button" @click="selectAllPermissions" 
+                        class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+                  Select All
                 </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <button type="button" @click="clearAllPermissions" 
+                        class="text-sm text-gray-600 dark:text-gray-400 hover:underline">
+                  Clear All
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end space-x-3 mt-6">
+            <button type="button" @click="closeRoleModals" 
+                    class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+              Cancel
+            </button>
+            <button type="submit" 
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">
+              {{ roleForm.id ? 'Update' : 'Create' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add/Edit Activity Type Modal -->
+    <div v-if="showAddActivityTypeModal || showEditActivityTypeModal" 
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+         @click.self="closeActivityTypeModals"
+         @keydown.escape="closeActivityTypeModals">
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {{ activityTypeForm.id ? 'Edit Activity Type' : 'Create New Activity Type' }}
+          </h3>
+          <button @click="closeActivityTypeModals" 
+                  class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitActivityType" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
+            <input v-model="activityTypeForm.name" type="text" required 
+                   class="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 dark:bg-gray-600 dark:text-white" />
+          </div>
+
+          <div class="flex justify-end space-x-3 mt-6">
+            <button type="button" @click="closeActivityTypeModals" 
+                    class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+              Cancel
+            </button>
+            <button type="submit" 
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">
+              {{ activityTypeForm.id ? 'Update' : 'Create' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </Layout>

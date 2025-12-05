@@ -48,9 +48,9 @@ class EventController extends Controller
                     'user' => [
                         'id' => $user->id,
                         'name' => $user->name,
-                         'email' => $user->email,
-                    'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
-                    'roles' => $user->getRoleNames(),
+                        'email' => $user->email,
+                        'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
+                        'roles' => $user->getRoleNames(),
                     ]
                 ]
             ]);
@@ -69,6 +69,15 @@ class EventController extends Controller
                         'edit' => false,
                         'delete' => false,
                         'view' => false,
+                    ]
+                ],
+                'auth' => [
+                    'user' => [
+                        'id' => Auth::id(),
+                        'name' => Auth::user()->name,
+                        'email' => Auth::user()->email,
+                        'permissions' => Auth::user()->getAllPermissions()->pluck('name')->toArray(),
+                        'roles' => Auth::user()->getRoleNames(),
                     ]
                 ]
             ]);
@@ -113,41 +122,8 @@ class EventController extends Controller
             'created_by'   => Auth::id(),
         ]);
 
-        // Return updated data
-        $user = Auth::user();
-        $permissions = [
-            'calendar' => [
-                'create' => $user->can('create events'),
-                'edit' => $user->can('edit events'),
-                'delete' => $user->can('delete events'),
-                'view' => $user->can('view events'),
-            ]
-        ];
-
-        return Inertia::render('Calendar/Index', [
-            'projects'   => Project::select('id', 'title', 'due_date')->get(),
-            'tasks'      => Task::select('id', 'title', 'project_id')->get(),
-            'activities' => Activity::select('id', 'title', 'due_date')->get(),
-            'events'     => Event::all()->map(fn($event) => [
-                'id'          => $event->id,
-                'title'       => $event->title,
-                'start'       => $event->start_date,
-                'end_date'    => $event->end_date,
-                'description' => $event->description,
-                'color'       => $event->color,
-                'project_id'  => $event->project_id,
-                'task_id'     => $event->task_id,
-                'activity_id' => $event->activity_id,
-                'created_by'  => $event->created_by,
-            ]),
-            'permissions' => $permissions,
-            'auth' => [
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                ]
-            ]
-        ]);
+        // ✅ FIXED: Redirect back to preserve all page data
+        return redirect()->back()->with('success', 'Event created successfully!');
     }
 
     public function update(Request $request, Event $event)
@@ -187,41 +163,8 @@ class EventController extends Controller
             'color'        => $data['color'],
         ]);
 
-        // Return updated data
-        $user = Auth::user();
-        $permissions = [
-            'calendar' => [
-                'create' => $user->can('create events'),
-                'edit' => $user->can('edit events'),
-                'delete' => $user->can('delete events'),
-                'view' => $user->can('view events'),
-            ]
-        ];
-
-        return Inertia::render('Calendar/Index', [
-            'projects'   => Project::select('id', 'title', 'due_date')->get(),
-            'tasks'      => Task::select('id', 'title', 'project_id')->get(),
-            'activities' => Activity::select('id', 'title', 'due_date')->get(),
-            'events'     => Event::all()->map(fn($event) => [
-                'id'          => $event->id,
-                'title'       => $event->title,
-                'start'       => $event->start_date,
-                'end_date'    => $event->end_date,
-                'description' => $event->description,
-                'color'       => $event->color,
-                'project_id'  => $event->project_id,
-                'task_id'     => $event->task_id,
-                'activity_id' => $event->activity_id,
-                'created_by'  => $event->created_by,
-            ]),
-            'permissions' => $permissions,
-            'auth' => [
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                ]
-            ]
-        ]);
+        // ✅ FIXED: Redirect back to preserve all page data
+        return redirect()->back()->with('success', 'Event updated successfully!');
     }
 
     public function destroy(Event $event)
@@ -233,40 +176,7 @@ class EventController extends Controller
 
         $event->delete();
 
-        // Return updated data after deletion
-        $user = Auth::user();
-        $permissions = [
-            'calendar' => [
-                'create' => $user->can('create events'),
-                'edit' => $user->can('edit events'),
-                'delete' => $user->can('delete events'),
-                'view' => $user->can('view events'),
-            ]
-        ];
-
-        return Inertia::render('Calendar/Index', [
-            'projects'   => Project::select('id', 'title', 'due_date')->get(),
-            'tasks'      => Task::select('id', 'title', 'project_id')->get(),
-            'activities' => Activity::select('id', 'title', 'due_date')->get(),
-            'events'     => Event::all()->map(fn($event) => [
-                'id'          => $event->id,
-                'title'       => $event->title,
-                'start'       => $event->start_date,
-                'end_date'    => $event->end_date,
-                'description' => $event->description,
-                'color'       => $event->color,
-                'project_id'  => $event->project_id,
-                'task_id'     => $event->task_id,
-                'activity_id' => $event->activity_id,
-                'created_by'  => $event->created_by,
-            ]),
-            'permissions' => $permissions,
-            'auth' => [
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                ]
-            ]
-        ]);
+        // ✅ FIXED: Redirect back to preserve all page data
+        return redirect()->back()->with('success', 'Event deleted successfully!');
     }
 }
