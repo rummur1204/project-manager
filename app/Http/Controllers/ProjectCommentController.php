@@ -8,32 +8,47 @@ use Illuminate\Http\Request;
 
 class ProjectCommentController extends Controller
 {
-    public function store(Request $request, Project $project)
-    {
-        $request->validate([
-            'message' => 'required|string|max:2000',
-        ]);
+   // ProjectCommentController.php - store method
+public function store(Request $request, Project $project)
+{
+    $request->validate([
+        'message' => 'required|string|max:2000',
+    ]);
 
-        $content = $request->input('message');
-        $urgency = 'Normal';
+    $content = $request->input('message');
+    $urgency = 'Normal';
 
-        if (preg_match('/urgent|immediately|asap|critical/i', $content)) {
-            $urgency = 'Critical';
-        } elseif (preg_match('/soon|important|priority|issue/i', $content)) {
-            $urgency = 'High';
-        }
-
-        $comment = ProjectComment::create([
-            'project_id' => $project->id,
-            'user_id' => auth()->id(),
-            'title' => 'Auto-generated',
-            'message' => $content,
-            'urgency' => $urgency,
-            'seen_by' => [auth()->id()], // Just pass the array, Laravel will cast it
-        ]);
-
-        return back()->with('success', 'Comment added.');
+    if (preg_match('/urgent|immediately|asap|critical/i', $content)) {
+        $urgency = 'Critical';
+    } elseif (preg_match('/soon|important|priority|issue/i', $content)) {
+        $urgency = 'High';
     }
+
+    $comment = ProjectComment::create([
+        'project_id' => $project->id,
+        'user_id' => auth()->id(),
+        'title' => 'Auto-generated',
+        'message' => $content,
+        'urgency' => $urgency,
+        'seen_by' => [auth()->id()],
+    ]);
+
+    // Load the user relationship
+    $comment->load('user');
+
+    // Return the created comment data
+    if ($request->header('X-Inertia')) {
+        return back()->with([
+            'success' => 'Comment added successfully',
+            'new_comment' => $comment // Send the new comment back
+        ]);
+    }
+    
+    return response()->json([
+        'success' => true,
+        'comment' => $comment
+    ]);
+}
 
     public function update(Request $request, Project $project, ProjectComment $comment)
     {
@@ -77,31 +92,57 @@ class ProjectCommentController extends Controller
 
     public function markAsSeen(Request $request, Project $project, ProjectComment $comment)
 {
-    // Authorization: User must be part of the project
-    if (!auth()->user()->projects->contains($project->id) && 
-        auth()->id() !== $project->created_by) {
-        // Return Inertia error response
-        return back()->with('error', 'Unauthorized action.');
+    \Log::info('Mark as seen called', [
+        'user_id' => auth()->id(),
+        'comment_id' => $comment->id
+    ]);
+
+    // Simple authentication check
+    if (!auth()->check()) {
+        \Log::warning('User not authenticated');
+        abort(401, 'Unauthenticated');
     }
 
     // Get current seen_by array
     $seenBy = $comment->seen_by ?? [];
+    if (!is_array($seenBy)) {
+        $seenBy = [];
+    }
     
     // Add current user to seen_by if not already there
-    if (!in_array(auth()->id(), $seenBy)) {
-        $seenBy[] = auth()->id();
+    $userId = auth()->id();
+    if (!in_array($userId, $seenBy)) {
+        $seenBy[] = $userId;
         
         // Update the comment
         $comment->update([
             'seen_by' => $seenBy
         ]);
+        
+        \Log::info('Comment updated successfully', ['seen_by' => $seenBy]);
     }
 
-    // Return Inertia response
+    // For Inertia, we need to return either:
+    // 1. back() with flash data
+    // 2. An Inertia::render() response
+    
+    // OPTION 1: Return back with flash data (simplest)
     return back()->with([
         'success' => 'Comment marked as seen',
         'comment_id' => $comment->id,
         'seen_by' => $seenBy
     ]);
+    
+    // OPTION 2: Return a proper Inertia response (if you need to update the page)
+    // return Inertia::render('Projects/Show', [
+    //     'project' => $project->load(['comments.user']),
+    //     'activity_types' => ActivityType::all(),
+    //     'flash' => [
+    //         'success' => 'Comment marked as seen',
+    //         'comment_id' => $comment->id,
+    //         'seen_by' => $seenBy
+    //     ]
+    // ]);
+    
 }
 }

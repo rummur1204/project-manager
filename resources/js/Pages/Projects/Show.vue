@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { Link, usePage, router } from '@inertiajs/vue3'
 import Layout from '../Dashboard/Layout.vue'
 
@@ -16,7 +16,7 @@ const activeMainTab = ref('overview')
 const activeTaskTab = ref('pending')
 const activeActivityTypeTab = ref('')
 const activeActivityStatusTab = ref('pending')
-const activeCommentTab = ref('mycomments') // Default to my comments
+const activeCommentTab = ref('new') // Changed default to 'new'
 
 /* ---------- Modals & Forms ---------- */
 const showAddTaskModal = ref(false)
@@ -59,15 +59,38 @@ const editActivityForm = ref({
 const editTasks = ref([])
 const editingTaskIndex = ref(null)
 
-/* Comments */
-const comments = ref(props.project.comments?.map(comment => ({
-  ...comment,
-  seen_by: comment.seen_by || [],
-  is_editing: false,
-  edit_message: comment.message
-})) || [])
+/* ---------- Comments ---------- */
+// Initialize comments with newest first
+const comments = ref(
+  (props.project.comments || [])
+    .map(comment => ({
+      ...comment,
+      seen_by: Array.isArray(comment.seen_by) ? comment.seen_by : [],
+      is_editing: false,
+      edit_message: comment.message,
+      // Ensure user object exists
+      user: comment.user || { id: null, name: 'Unknown' }
+    }))
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+)
+
 const newComment = ref('')
 const commentsContainer = ref(null)
+
+// Watch for changes in props to update comments
+watch(() => props.project.comments, (newComments) => {
+  if (newComments) {
+    comments.value = newComments
+      .map(comment => ({
+        ...comment,
+        seen_by: Array.isArray(comment.seen_by) ? comment.seen_by : [],
+        is_editing: false,
+        edit_message: comment.message,
+        user: comment.user || { id: null, name: 'Unknown' }
+      }))
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  }
+}, { deep: true })
 
 /* ---------- Helpers ---------- */
 const availableDevelopers = computed(() => props.project.developers || [])
@@ -187,22 +210,24 @@ const filteredActivities = computed(() => {
 
 /* ---------- Comments filtering ---------- */
 const filteredComments = computed(() => {
+  let filtered = []
+  
   if (activeCommentTab.value === 'mycomments') {
-    return comments.value.filter(comment => comment.user?.id === user.id)
-  }
-  if (activeCommentTab.value === 'new') {
-    return comments.value.filter(comment => 
+    filtered = comments.value.filter(comment => comment.user?.id === user.id)
+  } else if (activeCommentTab.value === 'new') {
+    filtered = comments.value.filter(comment => 
       comment.user?.id !== user.id && 
       !comment.seen_by?.includes(user.id)
     )
-  }
-  if (activeCommentTab.value === 'seen') {
-    return comments.value.filter(comment => 
+  } else if (activeCommentTab.value === 'seen') {
+    filtered = comments.value.filter(comment => 
       comment.user?.id !== user.id && 
       comment.seen_by?.includes(user.id)
     )
   }
-  return []
+  
+  // Sort by newest first (already sorted in main array, but sort again to be safe)
+  return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 })
 
 /* ---------- Weighted progress ---------- */
@@ -749,7 +774,7 @@ const createActivity = () => {
   })
 }
 
-/* ---------- Comments ---------- */
+/* ---------- Comment Functions ---------- */
 const detectUrgency = (text = '') => {
   const lower = (text || '').toLowerCase()
   if (lower.includes('urgent') || lower.includes('immediately') || lower.includes('asap') || lower.includes('critical')) return 'Critical'
@@ -763,40 +788,78 @@ const urgencyColor = (urgency) => ({
   Normal: 'text-gray-600 dark:text-gray-300'
 }[urgency] || 'text-gray-600 dark:text-gray-300')
 
-const scrollToBottom = () => nextTick(() => {
-  if (commentsContainer.value) commentsContainer.value.scrollTop = commentsContainer.value.scrollHeight
+// Scroll to top (since newest comments are at the top)
+const scrollToTop = () => nextTick(() => {
+  if (commentsContainer.value) commentsContainer.value.scrollTop = 0
 })
 
-const markCommentAsSeen = (comment) => {
-  // Only mark as seen if not already seen by current user
-  if (comment.seen_by?.includes(user.id)) {
-    return; // Already seen
+// Get developer name - FIXED to handle all users (developers, project creator, etc.)
+const getDeveloperName = (userId) => {
+  // Check if it's a project developer
+  const dev = props.project.developers?.find(d => d.id === userId)
+  if (dev) return dev.name
+  
+  // Check if it's the project creator
+  if (props.project.created_by === userId) {
+    return props.project.creator?.name || 'Project Creator'
   }
+  
+  // Check if it's the comment author (from comment data)
+  const commentAuthor = comments.value.find(c => c.user?.id === userId)?.user
+  if (commentAuthor) return commentAuthor.name
+  
+  // Check if it's the current user
+  if (userId === user.id) return user.name || 'You'
+  
+  return 'Unknown'
+}
+
+/* ---------- Comment Actions ---------- */
+const markCommentAsSeen = (comment) => {
+  // Don't proceed if already seen
+  if (comment.seen_by?.includes(user.id)) {
+    return;
+  }
+  
+  console.log('Marking comment as seen:', comment.id);
   
   // Use Inertia router
   router.post(`/projects/${props.project.id}/comments/${comment.id}/seen`, {}, {
     preserveScroll: true,
     preserveState: true,
     onSuccess: (page) => {
+      console.log('✅ Success - Flash data:', page.props.flash);
+      
       // Check if this is the comment we updated
-      if (page.props.flash?.comment_id === comment.id) {
-        comment.seen_by = page.props.flash.seen_by || [];
-        console.log('Comment marked as seen:', comment.id, comment.seen_by);
+      const flash = page.props.flash || {};
+      if (flash.comment_id === comment.id && flash.seen_by) {
+        console.log('✅ Found matching comment in flash data');
+        
+        // Update the specific comment
+        const commentIndex = comments.value.findIndex(c => c.id === comment.id);
+        if (commentIndex !== -1) {
+          comments.value[commentIndex].seen_by = flash.seen_by;
+          console.log('✅ Updated comment locally:', comments.value[commentIndex]);
+        }
+      } else {
+        console.log('⚠️ Flash data not found or mismatch, updating locally anyway');
+        // Update locally as fallback
+        if (!comment.seen_by) comment.seen_by = [];
+        if (!comment.seen_by.includes(user.id)) {
+          comment.seen_by = [...comment.seen_by, user.id];
+        }
       }
     },
     onError: (errors) => {
-      console.error('Error marking comment as seen:', errors);
-      // Update locally for better UX even if backend fails
-      if (!comment.seen_by) {
-        comment.seen_by = [];
-      }
+      console.error('❌ Error marking comment as seen:', errors);
+      // Update locally for better UX
+      if (!comment.seen_by) comment.seen_by = [];
       if (!comment.seen_by.includes(user.id)) {
-        comment.seen_by.push(user.id);
-        comment.seen_by = [...comment.seen_by];
+        comment.seen_by = [...comment.seen_by, user.id];
       }
     }
   });
-}
+};
 
 const deleteComment = (commentId) => {
   if (!confirm('Are you sure you want to delete this comment?')) return
@@ -810,11 +873,6 @@ const deleteComment = (commentId) => {
   })
 }
 
-const getDeveloperName = (userId) => {
-  const dev = props.project.developers?.find(d => d.id === userId)
-  return dev ? dev.name : 'Unknown'
-}
-
 const startEditingComment = (comment) => {
   comment.is_editing = true
   comment.edit_message = comment.message
@@ -825,7 +883,6 @@ const saveEditedComment = (comment) => {
   
   router.put(`/projects/${props.project.id}/comments/${comment.id}`, { 
     message: comment.edit_message
-    // Don't send urgency - backend will detect it
   }, {
     preserveScroll: true,
     preserveState: true,
@@ -846,26 +903,94 @@ const cancelEditingComment = (comment) => {
   comment.edit_message = comment.message
 }
 
-const addComment = (e) => {
+const addComment = async (e) => {
   e.preventDefault()
   if (!newComment.value?.trim()) return alert('Please write a comment.')
   
-  router.post(`/projects/${props.project.id}/comments`, { 
-    message: newComment.value
-  }, {
-    preserveScroll: true,
-    preserveState: true,
-    onSuccess: () => {
-      // Clear the input
-      newComment.value = ''
-      scrollToBottom()
-      
-      // Reload comments from server to get the new comment with proper ID
-      router.reload({ only: ['project'], preserveScroll: true, preserveState: true })
+  try {
+    // Create a temporary comment for immediate UI feedback
+    const tempComment = {
+      id: 'temp-' + Date.now(), // Temporary ID
+      message: newComment.value,
+      urgency: detectUrgency(newComment.value),
+      user: user,
+      seen_by: [user.id], // Creator sees it immediately
+      created_at: new Date().toISOString(),
+      is_editing: false,
+      edit_message: newComment.value
     }
-  })
+    
+    // Add to the beginning of the comments array (newest first)
+    comments.value.unshift(tempComment)
+    
+    // Clear input
+    const commentText = newComment.value
+    newComment.value = ''
+    
+    // Scroll to top to show new comment
+    scrollToTop()
+    
+    // Send to server
+    const response = await router.post(`/projects/${props.project.id}/comments`, { 
+      message: commentText
+    }, {
+      preserveScroll: true,
+      preserveState: true,
+    })
+    
+    // Check if we got a new comment in flash data
+    if (page.props.flash?.new_comment) {
+      const newCommentData = page.props.flash.new_comment
+      
+      // Replace the temp comment with the real one from server
+      const tempIndex = comments.value.findIndex(c => c.id === tempComment.id)
+      if (tempIndex !== -1) {
+        comments.value[tempIndex] = {
+          ...newCommentData,
+          seen_by: newCommentData.seen_by || [user.id],
+          is_editing: false,
+          edit_message: newCommentData.message,
+          user: newCommentData.user || user
+        }
+        console.log('✅ New comment added from flash data:', newCommentData)
+      }
+    } else {
+      // If no flash data, reload comments from server
+      await router.reload({ 
+        only: ['project'], 
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          // Update comments from fresh props
+          comments.value = (props.project.comments || [])
+            .map(comment => ({
+              ...comment,
+              seen_by: Array.isArray(comment.seen_by) ? comment.seen_by : [],
+              is_editing: false,
+              edit_message: comment.message,
+              user: comment.user || { id: null, name: 'Unknown' }
+            }))
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        }
+      })
+    }
+    
+    console.log('✅ Comment added successfully')
+    
+  } catch (error) {
+    console.error('❌ Error adding comment:', error)
+    
+    // Remove the temp comment on error
+    const tempIndex = comments.value.findIndex(c => c.id && c.id.startsWith('temp-'))
+    if (tempIndex !== -1) {
+      comments.value.splice(tempIndex, 1)
+    }
+    
+    alert('Failed to add comment. Please try again.')
+  }
 }
 
+/* ---------- Other Functions ---------- */
 const acceptProject = () => {
   router.post(`/projects/${props.project.id}/accept`, {}, {
     preserveScroll: true,
@@ -1483,14 +1608,14 @@ const closeModals = () => {
                       </div>
                       <p v-else class="text-gray-800 dark:text-gray-100 whitespace-pre-wrap">{{ comment.message }}</p>
                       
-                      <!-- Seen by list - Show only for the comment creator -->
-                      <div v-if="comment.user?.id === user.id && comment.seen_by && comment.seen_by.length > 0" 
+                      <!-- Seen by list - Show only for the comment creator (and filter out the creator) -->
+                      <div v-if="comment.user?.id === user.id && comment.seen_by && comment.seen_by.length > 1" 
                            class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                         <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                          Seen by {{ comment.seen_by.length }} {{ comment.seen_by.length === 1 ? 'person' : 'people' }}:
+                          Seen by {{ comment.seen_by.length - 1 }} {{ comment.seen_by.length - 1 === 1 ? 'person' : 'people' }}:
                         </p>
                         <div class="flex flex-wrap gap-1">
-                          <span v-for="userId in comment.seen_by" :key="userId"
+                          <span v-for="userId in comment.seen_by.filter(id => id !== user.id)" :key="userId"
                                 class="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
                             {{ getDeveloperName(userId) }}
                           </span>

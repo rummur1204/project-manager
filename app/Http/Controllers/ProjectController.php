@@ -222,6 +222,7 @@ class ProjectController extends Controller
         'projectGithubLinks',
         'activities.developers',
         'activities.type', // Add activities if you have them
+        'creator',
     ]);
 
     // Load activity types - you'll need to adjust this based on your model
