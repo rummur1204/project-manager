@@ -224,37 +224,73 @@ class ChatController extends Controller
         return response()->json($message);
     }
 
-    public function store(Request $request, Chat $chat)
-    {
-        $user = auth()->user();
+   public function store(Request $request, Chat $chat)
+{
+    $user = auth()->user();
 
-        // Check if user can send messages to this chat
-        if (!$chat->users()->where('user_id', $user->id)->exists()) {
-            abort(403, 'You are not part of this chat.');
-        }
-
-        // For group chats, check if developer has accepted
-        if ($chat->type === 'group' && $chat->project) {
-            $projectUser = $chat->project->users()->where('user_id', $user->id)->first();
-            $isDeveloper = $projectUser && $user->hasRole('Developer');
-            $hasAccepted = $projectUser && $projectUser->pivot->accepted;
-
-            if ($isDeveloper && !$hasAccepted) {
-                abort(403, 'You cannot send messages until you accept the project.');
-            }
-        }
-
-        $validated = $request->validate([
-            'message' => 'required|string|max:2000',
-        ]);
-
-        $message = $chat->messages()->create([
-            'user_id' => $user->id,
-            'message' => $validated['message'],
-        ]);
-
-        return back();
+    // Check if user can send messages to this chat
+    if (!$chat->users()->where('user_id', $user->id)->exists()) {
+        return back()->withErrors(['error' => 'You are not part of this chat.']);
     }
+
+    // For group chats, check if developer has accepted
+    if ($chat->type === 'group' && $chat->project) {
+        $projectUser = $chat->project->users()->where('user_id', $user->id)->first();
+        $isDeveloper = $projectUser && $user->hasRole('Developer');
+        $hasAccepted = $projectUser && $projectUser->pivot->accepted;
+
+        if ($isDeveloper && !$hasAccepted) {
+            return back()->withErrors(['error' => 'You cannot send messages until you accept the project.']);
+        }
+    }
+
+    $validated = $request->validate([
+        'message' => 'nullable|string|max:2000',
+        'attachments.*' => 'nullable|file|max:10240', // Max 10MB per file
+    ]);
+
+    // Check if there's at least a message or attachment
+    if (empty($validated['message']) && !$request->hasFile('attachments')) {
+        return back()->withErrors(['error' => 'Message or attachment is required.']);
+    }
+
+    $messageData = [
+        'user_id' => $user->id,
+        'message' => $validated['message'] ?? null, // Can be null for file-only messages
+    ];
+
+    // Handle file uploads with original filenames
+    if ($request->hasFile('attachments')) {
+        $filePaths = [];
+        $fileNames = [];
+        
+        foreach ($request->file('attachments') as $file) {
+            // Get original filename
+            $originalName = $file->getClientOriginalName();
+            $extension = $file->getClientOriginalExtension();
+            
+            // Generate safe filename (remove special characters)
+            $safeName = preg_replace('/[^A-Za-z0-9\-\.]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
+            $safeName = $safeName . '_' . time() . '_' . rand(1000, 9999) . '.' . $extension;
+            
+            // Store with custom name
+            $path = $file->storeAs('chat_attachments', $safeName, 'public');
+            
+            // Store both path and original name
+            $filePaths[] = [
+                'path' => $path,
+                'original_name' => $originalName
+            ];
+        }
+        
+        // Store file info as JSON
+        $messageData['file_path'] = $filePaths;
+    }
+
+    $message = $chat->messages()->create($messageData);
+
+    return back();
+}
 
     public function createPrivateChat(Request $request)
     {
@@ -299,4 +335,23 @@ class ChatController extends Controller
 
         return response()->json(['unread_count' => $unreadCount]);
     }
+
+    // Add this method to mark chat as read
+public function markAsRead(Chat $chat)
+{
+    $user = auth()->user();
+    
+    // Check if user is part of the chat
+    if (!$chat->users()->where('user_id', $user->id)->exists()) {
+        return response()->json(['error' => 'Not authorized'], 403);
+    }
+    
+    // Mark messages as read for this user only
+    $chat->messages()
+        ->where('user_id', '!=', $user->id)
+        ->where('read_at', null)
+        ->update(['read_at' => now()]);
+    
+    return response()->json(['success' => true]);
+}
 }

@@ -13,8 +13,13 @@ class ProjectComment extends Model
         'title',
         'message',
         'urgency',
+        'seen_by',
     ];
-
+    
+     protected $casts = [
+        'seen_by' => 'array',
+    ];
+    
     public function user()
     {
         return $this->belongsTo(User::class);

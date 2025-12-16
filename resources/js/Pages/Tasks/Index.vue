@@ -2,7 +2,7 @@
 import { ref, computed, watch,onMounted } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import Layout from '../Dashboard/Layout.vue'
-import { Trash2, Send, Edit2 } from 'lucide-vue-next'
+import {  Send } from 'lucide-vue-next'
 
 const { props } = usePage()
 
@@ -103,14 +103,14 @@ const toggleStatus = async (task) => {
   }
 }
 
-const deleteTask = (taskId) => {
-  if (!confirm('Are you sure you want to delete this task?')) return
-  router.delete(`/projects/${project.value.id}/tasks/${taskId}`, {
-    onSuccess: () => {
-      emitProgressUpdate()
-    }
-  })
-}
+// const deleteTask = (taskId) => {
+//   if (!confirm('Are you sure you want to delete this task?')) return
+//   router.delete(`/projects/${project.value.id}/tasks/${taskId}`, {
+//     onSuccess: () => {
+//       emitProgressUpdate()
+//     }
+//   })
+// }
 
 const startEdit = (task) => {
   editTask.value[task.id] = { ...task }

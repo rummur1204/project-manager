@@ -50,13 +50,14 @@ Route::middleware(['auth'])->group(function () {
     
     // Project show route - accessible to all authenticated users
     Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+     Route::post('/projects/{project}/accept', [ProjectController::class, 'accept'])->name('projects.accept');
+        Route::post('/projects/{project}/decline', [ProjectController::class, 'decline'])->name('projects.decline');
     
     // Project edit, update, delete routes
     Route::middleware(['can:edit projects'])->group(function () {
         Route::get('/projects/{project}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
         Route::put('/projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
-        Route::post('/projects/{project}/accept', [ProjectController::class, 'accept'])->name('projects.accept');
-        Route::post('/projects/{project}/decline', [ProjectController::class, 'decline'])->name('projects.decline');
+       
         Route::post('/projects/{project}/tasks/bulk-create', [ProjectController::class, 'bulkCreateTasks'])->name('projects.tasks.bulk-create');
   
     
@@ -70,6 +71,8 @@ Route::middleware(['auth'])->group(function () {
     
     // View tasks - accessible if user can view projects
     Route::get('/projects/{project}/tasks', [TaskController::class, 'index'])->name('tasks.index');
+    Route::patch('/projects/{project}/tasks/{task}/toggle', [TaskController::class, 'toggleStatus'])->name('tasks.toggle');
+    Route::patch('/projects/{project}/tasks/{task}/status', [TaskController::class, 'updateStatus'])->name('tasks.status');
     
     // Create, edit, update, delete tasks - protected by permissions
     Route::middleware(['can:create tasks'])->group(function () {
@@ -78,8 +81,7 @@ Route::middleware(['auth'])->group(function () {
     
     Route::middleware(['can:edit tasks'])->group(function () {
         Route::put('/projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
-        Route::patch('/projects/{project}/tasks/{task}/toggle', [TaskController::class, 'toggleStatus'])->name('tasks.toggle');
-        Route::patch('/projects/{project}/tasks/{task}/status', [TaskController::class, 'updateStatus'])->name('tasks.status');
+       
         Route::patch('/projects/{project}/tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('projects.tasks.bulk-update');
     });
     
@@ -89,10 +91,14 @@ Route::middleware(['auth'])->group(function () {
     
     // =============================================
     // COMMENTS SECTION - ACCESSIBLE TO ALL AUTHENTICATED USERS
-    // =============================================
-    
-    Route::post('/projects/{project}/comments', [ProjectCommentController::class, 'store'])->name('projects.comments.store');
-    Route::post('/tasks/{task}/comments', [TaskCommentController::class, 'store'])->name('tasks.comments.store');
+  // =============================================
+
+      Route::post('/projects/{project}/comments', [ProjectCommentController::class, 'store'])->name('projects.comments.store');
+      Route::put('/projects/{project}/comments/{comment}', [ProjectCommentController::class, 'update'])->name('projects.comments.update');
+      Route::delete('/projects/{project}/comments/{comment}', [ProjectCommentController::class, 'destroy'])->name('projects.comments.destroy');
+      Route::post('/projects/{project}/comments/{comment}/seen', [ProjectCommentController::class, 'markAsSeen'])->name('projects.comments.seen');
+      
+      Route::post('/tasks/{task}/comments', [TaskCommentController::class, 'store'])->name('tasks.comments.store');
     
     // =============================================
     // CALENDAR SECTION - PERMISSION PROTECTED ROUTES
@@ -115,18 +121,18 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/chats', [ChatController::class, 'store'])->name('chats.store');
     Route::post('/chats/{chat}/messages', [ChatController::class, 'store'])->name('chats.store');
     Route::get('/chats/unread-count', [ChatController::class, 'getUnreadCount'])->name('chats.unread-count');
+    Route::post('/chats/{chat}/mark-read', [ChatController::class, 'markAsRead'])->name('chats.mark-read');
     
     // =============================================
     // ACTIVITIES SECTION - PERMISSION PROTECTED ROUTES
     // =============================================
-    
+    Route::patch('/activities/{activity}/status', [ActivityController::class, 'updateStatus'])->name('activities.status');
+
     Route::middleware(['can:delete activities'])->group(function () {
         Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->name('activities.destroy');
     });
     
-    Route::middleware(['can:edit activities'])->group(function () {
-        Route::patch('/activities/{activity}/status', [ActivityController::class, 'updateStatus'])->name('activities.status');
-    });
+    
     
     Route::post('/projects/{project}/activities', [ActivityController::class, 'store'])->name('projects.activities.store');
     Route::put('/activities/{activity}', [ActivityController::class, 'update'])->name('activities.update');

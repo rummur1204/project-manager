@@ -346,13 +346,13 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <Link
+          <!-- <Link
             v-if="userCan('view projects')"
             :href="`/projects/${project.id}/tasks`"
             class="flex items-center gap-1 bg-gray-700 text-white text-sm px-3 py-1.5 rounded-md hover:bg-gray-800 transition"
           >
             <ClipboardList class="w-4 h-4" /> Tasks
-          </Link>
+          </Link> -->
         </div>
       </div>
     </div>
