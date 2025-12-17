@@ -504,7 +504,7 @@ const deleteEvent = (event) => {
             <button 
               v-if="canCreate"
               @click="openAddModal"
-              class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+              class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
               :class="{ 'opacity-50 cursor-not-allowed': !canCreate }"
             >
               + Add Event

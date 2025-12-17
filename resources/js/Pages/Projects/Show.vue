@@ -1031,7 +1031,7 @@ const closeModals = () => {
           <div>
             <h2 class="text-3xl font-semibold text-gray-900 dark:text-gray-100">{{ props.project.title }}</h2>
           </div>
-          <Link href="/projects" class="text-indigo-600 dark:text-indigo-400 hover:underline">← Back</Link>
+          <Link href="/projects" class="text-teal-600 dark:text-teal-400 hover:underline">← Back</Link>
         </div>
 
         <!-- Description + Info -->
@@ -1046,14 +1046,14 @@ const closeModals = () => {
         <div class="mb-8">
           <div class="flex justify-between items-center mb-2">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Project Progress</h3>
-            <span class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+            <span class="text-2xl font-bold text-teal-600 dark:text-teal-400">
               {{ calculateWeightedProgress(props.project.tasks) }}%
             </span>
           </div>
           <div class="w-full bg-gray-200 dark:bg-gray-700 h-4 rounded-full overflow-hidden">
-            <div class="bg-gradient-to-r from-indigo-500 to-purple-600 h-4 rounded-full transition-all duration-500"
-                 :style="{ width: calculateWeightedProgress(props.project.tasks) + '%' }"></div>
-          </div>
+  <div class="bg-gradient-to-r from-teal-500 to-emerald-600 h-4 rounded-full transition-all duration-500"
+       :style="{ width: calculateWeightedProgress(props.project.tasks) + '%' }"></div>
+</div>
         </div>
         <!-- Project Info Cards Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -1237,7 +1237,7 @@ const closeModals = () => {
                   </div>
 
                   <div class="flex gap-2">
-                    <button v-if="canEditTasks" @click="openAddTaskModal" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm">+ Add Task</button>
+                    <button v-if="canEditTasks" @click="openAddTaskModal" class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-4 py-2 rounded-lg text-sm">+ Add Task</button>
                     <button v-if="canEditTasks" @click="openEditTaskModal" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm">Edit All Tasks</button>
                   </div>
                 </div>
@@ -1372,7 +1372,7 @@ const closeModals = () => {
                   </div>
 
                   <div class="flex gap-2">
-                    <button v-if="canCreateActivities" @click="openAddActivityModal" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm">+ Add Activity</button>
+                    <button v-if="canCreateActivities" @click="openAddActivityModal" class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-4 py-2 rounded-lg text-sm">+ Add Activity</button>
                   </div>
                 </div>
 

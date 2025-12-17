@@ -299,7 +299,7 @@ const initTabFromUrl = () => {
 <template>
   <Layout>
     <div class="max-w-7xl mx-auto p-4 md:p-6">
-      <h1 class="text-2xl font-bold mb-6 dark:text-gray-100">Settings</h1>
+      
 
       <!-- Flash Messages -->
       <div v-if="flash.success" class="mb-6 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg">
@@ -332,32 +332,32 @@ const initTabFromUrl = () => {
 
       <!-- Tabs - PURELY CLIENT-SIDE -->
       <div class="mb-8">
-        <div class="border-b border-gray-200 dark:border-gray-700">
-          <nav class="-mb-px flex space-x-8">
-            <button @click="switchTab('users')"
-                    :class="['py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200', tab === 'users' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600']">
-              <div class="flex items-center space-x-2">
-                <Users class="h-4 w-4" />
-                <span>Users</span>
-              </div>
-            </button>
-            <button @click="switchTab('roles')"
-                    :class="['py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200', tab === 'roles' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600']">
-              <div class="flex items-center space-x-2">
-                <Shield class="h-4 w-4" />
-                <span>Roles</span>
-              </div>
-            </button>
-            <button @click="switchTab('activitytypes')"
-                    :class="['py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200', tab === 'activitytypes' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600']">
-              <div class="flex items-center space-x-2">
-                <Sparkles class="h-4 w-4" />
-                <span>Activity Types</span>
-              </div>
-            </button>
-          </nav>
+  <div class="border-b border-teal-200 dark:border-teal-800/30">
+    <nav class="-mb-px flex space-x-8">
+      <button @click="switchTab('users')"
+              :class="['py-3 px-1 border-b-2 font-medium text-sm transition-all duration-200', tab === 'users' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 dark:hover:border-teal-600']">
+        <div class="flex items-center space-x-2">
+          <Users class="h-4 w-4" />
+          <span>Users</span>
         </div>
-      </div>
+      </button>
+      <button @click="switchTab('roles')"
+              :class="['py-3 px-1 border-b-2 font-medium text-sm transition-all duration-200', tab === 'roles' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 dark:hover:border-teal-600']">
+        <div class="flex items-center space-x-2">
+          <Shield class="h-4 w-4" />
+          <span>Roles</span>
+        </div>
+      </button>
+      <button @click="switchTab('activitytypes')"
+              :class="['py-3 px-1 border-b-2 font-medium text-sm transition-all duration-200', tab === 'activitytypes' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 dark:hover:border-teal-600']">
+        <div class="flex items-center space-x-2">
+          <Sparkles class="h-4 w-4" />
+          <span>Activity Types</span>
+        </div>
+      </button>
+    </nav>
+  </div>
+</div>
 
       <!-- USERS TAB -->
       <div v-if="tab === 'users'" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
@@ -370,7 +370,7 @@ const initTabFromUrl = () => {
               </p>
             </div>
             <button @click="openAddUserModal" 
-                    class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                    class="inline-flex items-center justify-center bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
               <Users class="h-4 w-4 mr-2" />
               New User
             </button>
@@ -445,7 +445,7 @@ const initTabFromUrl = () => {
               </p>
             </div>
             <button @click="openAddRoleModal" 
-                    class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                    class="inline-flex items-center justify-center bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
               <Shield class="h-4 w-4 mr-2" />
               New Role
             </button>
@@ -522,7 +522,7 @@ const initTabFromUrl = () => {
               </p>
             </div>
             <button @click="openAddActivityTypeModal" 
-                    class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                    class="inline-flex items-center justify-center bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
               <Sparkles class="h-4 w-4 mr-2" />
               New Activity Type
             </button>

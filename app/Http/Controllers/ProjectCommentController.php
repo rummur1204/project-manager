@@ -122,27 +122,16 @@ public function store(Request $request, Project $project)
         \Log::info('Comment updated successfully', ['seen_by' => $seenBy]);
     }
 
-    // For Inertia, we need to return either:
-    // 1. back() with flash data
-    // 2. An Inertia::render() response
     
-    // OPTION 1: Return back with flash data (simplest)
+    
+    
     return back()->with([
         'success' => 'Comment marked as seen',
         'comment_id' => $comment->id,
         'seen_by' => $seenBy
     ]);
     
-    // OPTION 2: Return a proper Inertia response (if you need to update the page)
-    // return Inertia::render('Projects/Show', [
-    //     'project' => $project->load(['comments.user']),
-    //     'activity_types' => ActivityType::all(),
-    //     'flash' => [
-    //         'success' => 'Comment marked as seen',
-    //         'comment_id' => $comment->id,
-    //         'seen_by' => $seenBy
-    //     ]
-    // ]);
+   
     
 }
 }

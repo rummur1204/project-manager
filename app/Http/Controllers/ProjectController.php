@@ -18,49 +18,51 @@ class ProjectController extends Controller
     // ======================
     //  INDEX
     // ======================
-    public function index()
-    {
-        $user = auth()->user();
+   public function index()
+{
+    $user = auth()->user();
+    $perPage = 6; // 2 rows × 3 cards = 6 projects per page
 
-        $projects = collect();
-
-        // Check permissions to determine which projects the user can see
-        if ($user->can('view all projects')) {
-            // Full access: show all projects
-            $projects = Project::with(['client', 'developers', 'tasks'])
-                ->latest()
-                ->get();
-        } elseif ($user->can('view own projects')) {
-            // Limited access: show projects where user is client or developer
-            $projects = Project::with(['client', 'developers', 'tasks'])
-                ->where(function($query) use ($user) {
-                    $query->where('client_id', $user->id)
-                          ->orWhereHas('developers', fn($q) => $q->where('user_id', $user->id))
-                            ->orWhere('created_by', $user->id);
-                })
-                ->latest()
-                ->get();
-        }
-
-        return Inertia::render('Projects/Index', [
-            'projects' => $projects,
-            'auth' => [
-                'can' => [
-                    'view projects' => $user->can('view projects'),
-                    'create projects' => $user->can('create projects'),
-                    'edit projects' => $user->can('edit projects'),
-                    'delete projects' => $user->can('delete projects'),
-                ],
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
-                    'roles' => $user->getRoleNames(),
-                ],
-            ],
-        ]);
+    // Check permissions to determine which projects the user can see
+    if ($user->can('view all projects')) {
+        // Full access: show all projects with pagination
+        $projects = Project::with(['client', 'developers', 'tasks'])
+            ->latest()
+            ->paginate($perPage);
+    } elseif ($user->can('view own projects')) {
+        // Limited access: show projects where user is client or developer with pagination
+        $projects = Project::with(['client', 'developers', 'tasks'])
+            ->where(function($query) use ($user) {
+                $query->where('client_id', $user->id)
+                      ->orWhereHas('developers', fn($q) => $q->where('user_id', $user->id))
+                      ->orWhere('created_by', $user->id);
+            })
+            ->latest()
+            ->paginate($perPage);
+    } else {
+        // No permission, return empty paginated collection
+        $projects = Project::whereNull('id')->paginate($perPage);
     }
+
+    return Inertia::render('Projects/Index', [
+        'projects' => $projects,
+        'auth' => [
+            'can' => [
+                'view projects' => $user->can('view projects'),
+                'create projects' => $user->can('create projects'),
+                'edit projects' => $user->can('edit projects'),
+                'delete projects' => $user->can('delete projects'),
+            ],
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
+                'roles' => $user->getRoleNames(),
+            ],
+        ],
+    ]);
+}
 
     // ======================
     //  CREATE

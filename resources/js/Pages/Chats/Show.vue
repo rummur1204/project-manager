@@ -568,38 +568,43 @@ watch(() => props.chat?.messages?.length, () => {
 
 <template>
   <Layout>
-    <main class="p-6 overflow-y-auto flex-1">
+    <!-- Main Content with margin to account for navbar -->
+    <div class="p-6 mt-6">
       <!-- Error Alert -->
       <div v-if="$page.props.errors.error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
         <span class="block sm:inline">{{ $page.props.errors.errors?.error || $page.props.errors.error }}</span>
       </div>
       
-      <div class="flex h-[80vh] bg-white dark:bg-gray-800 rounded-xl shadow mt-6 overflow-hidden transition-colors">
+      <div class="flex h-[80vh] bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden transition-colors">
 
         <!-- Sidebar -->
-        <div class="w-1/3 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-          <div class="flex justify-between items-center p-3 bg-indigo-600 text-white">
-            <h2 class="font-semibold">Chats</h2>
-            <span 
-              v-if="chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) > 0"
-              class="bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center"
-            >
-              {{ chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) }}
-            </span>
+        <div class="w-1/3 border-r border-teal-200 dark:border-teal-800/30 flex flex-col">
+          <!-- Sidebar Header with Teal -->
+          <div class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-5 py-4">
+            <div class="flex justify-between items-center">
+              <h2 class="text-lg font-semibold">Chats</h2>
+              <span 
+                v-if="chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) > 0"
+                class="bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center ring-2 ring-white dark:ring-gray-800"
+              >
+                {{ chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) > 9 ? '9+' : chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) }}
+              </span>
+            </div>
           </div>
 
-          <div class="flex-1 overflow-y-auto">
+          <!-- Chat List -->
+          <div class="flex-1 overflow-y-auto bg-gradient-to-b from-teal-50/30 to-white dark:from-teal-900/5 dark:to-gray-800">
             <div
               v-for="chat in sortedChats"
               :key="chat.id"
               @click="openChat(chat.id)"
-              class="p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-indigo-50 dark:hover:bg-gray-700 cursor-pointer transition-colors relative"
-              :class="{'bg-indigo-100 dark:bg-gray-700': chat.id === selectedChat}"
+              class="p-4 border-b border-teal-100 dark:border-teal-800/30 hover:bg-gradient-to-r hover:from-teal-50 hover:to-emerald-50 dark:hover:from-teal-900/20 dark:hover:to-emerald-900/20 cursor-pointer transition-all duration-200 relative"
+              :class="{'bg-gradient-to-r from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30': chat.id === selectedChat}"
             >
               <!-- Unread badge -->
               <span 
                 v-if="chat.unread_count > 0"
-                class="absolute top-2 right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+                class="absolute top-2 right-2 bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center ring-2 ring-white dark:ring-gray-800"
               >
                 {{ chat.unread_count > 9 ? '9+' : chat.unread_count }}
               </span>
@@ -610,11 +615,11 @@ watch(() => props.chat?.messages?.length, () => {
                   <h3 class="font-semibold text-gray-800 dark:text-gray-100 truncate">
                     {{ getChatName(chat) }}
                   </h3>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  <p class="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">
                     {{ getLatestMessage(chat) }}
                   </p>
                 </div>
-                <span class="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap ml-2">
+                <span class="text-xs text-teal-600 dark:text-teal-400 whitespace-nowrap ml-2">
                   {{ getLatestTime(chat) }}
                 </span>
               </div>
@@ -628,16 +633,20 @@ watch(() => props.chat?.messages?.length, () => {
 
         <!-- Chat Window -->
         <div v-if="chat" class="flex-1 flex flex-col relative">
-          <!-- Header -->
-          <div class="bg-indigo-600 text-white px-5 py-3 flex justify-between items-center">
-            <h2 class="text-lg font-semibold">{{ getChatName(chat) }}</h2>
-            <span class="text-sm opacity-80">{{ getChatDescription(chat) }}</span>
+          <!-- Chat Header with Teal -->
+          <div class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-5 py-4">
+            <div class="flex justify-between items-center">
+              <div>
+                <h2 class="text-lg font-semibold">{{ getChatName(chat) }}</h2>
+                <p class="text-sm opacity-90">{{ getChatDescription(chat) }}</p>
+              </div>
+            </div>
           </div>
 
           <!-- Messages Container -->
           <div 
             ref="messagesContainer" 
-            class="flex-1 overflow-y-auto p-4 space-y-3"
+            class="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-teal-50/20 to-white dark:from-teal-900/5 dark:to-gray-800"
             @scroll="handleScroll"
           >
             <div v-if="!chat.messages.length" class="text-gray-400 dark:text-gray-500 text-center py-6">
@@ -650,7 +659,7 @@ watch(() => props.chat?.messages?.length, () => {
                 v-if="shouldShowDateSeparator(chat.messages, index)"
                 class="flex justify-center my-4"
               >
-                <span class="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
+                <span class="px-3 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs rounded-full">
                   {{ formatDateForSeparator(msg.created_at) }}
                 </span>
               </div>
@@ -659,10 +668,10 @@ watch(() => props.chat?.messages?.length, () => {
               <div :class="['flex', msg.user_id === auth.user.id ? 'justify-end' : 'justify-start']">
                 <div
                   :class="[ 
-                    'p-3 rounded-lg max-w-xs', 
+                    'p-3 rounded-xl max-w-xs shadow-sm', 
                     msg.user_id === auth.user.id 
-                      ? 'bg-indigo-600 text-white' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100'
+                      ? 'bg-gradient-to-br from-teal-600 to-emerald-600 text-white' 
+                      : 'bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-700 border border-teal-100 dark:border-teal-800/30 text-gray-800 dark:text-gray-100'
                   ]"
                 >
                   <p class="text-sm font-semibold">{{ msg.user?.name || 'User' }}</p>
@@ -670,7 +679,7 @@ watch(() => props.chat?.messages?.length, () => {
                   <!-- File attachments -->
                   <div v-if="msg.file_path" class="mt-2 mb-2 space-y-2">
                     <div v-for="(fileInfo, fileIndex) in getMessageFiles(msg)" :key="fileIndex">
-                      <div class="flex items-center space-x-2 p-2 bg-black/10 dark:bg-white/10 rounded">
+                      <div class="flex items-center space-x-2 p-2 bg-black/10 dark:bg-white/10 rounded-lg">
                         <span class="text-xl">{{ getFileIcon(fileInfo) }}</span>
                         <div class="flex-1 min-w-0">
                           <p class="text-sm font-medium truncate">{{ getFileName(fileInfo) }}</p>
@@ -680,7 +689,7 @@ watch(() => props.chat?.messages?.length, () => {
                               v-if="msg.user_id === auth.user.id"
                               :href="'/storage/' + fileInfo.path" 
                               target="_blank" 
-                              class="text-xs text-blue-400 hover:text-blue-300 hover:underline"
+                              class="text-xs text-teal-300 hover:text-teal-200 hover:underline"
                             >
                               View
                             </a>
@@ -689,7 +698,7 @@ watch(() => props.chat?.messages?.length, () => {
                               <button 
                                 v-if="!isFileDownloaded(msg.id, fileInfo.path)"
                                 @click="downloadFile('/storage/' + fileInfo.path, getFileName(fileInfo), msg.id, fileInfo.path)"
-                                class="text-xs text-blue-400 hover:text-blue-300 hover:underline focus:outline-none"
+                                class="text-xs text-teal-500 dark:text-teal-400 hover:text-teal-600 dark:hover:text-teal-300 hover:underline focus:outline-none"
                                 type="button"
                               >
                                 Download
@@ -698,7 +707,7 @@ watch(() => props.chat?.messages?.length, () => {
                                 v-else
                                 :href="'/storage/' + fileInfo.path" 
                                 target="_blank" 
-                                class="text-xs text-blue-400 hover:text-blue-300 hover:underline"
+                                class="text-xs text-teal-500 dark:text-teal-400 hover:text-teal-600 dark:hover:text-teal-300 hover:underline"
                               >
                                 View
                               </a>
@@ -721,7 +730,7 @@ watch(() => props.chat?.messages?.length, () => {
                         <img 
                           :src="'/storage/' + fileInfo.path" 
                           :alt="getFileName(fileInfo)"
-                          class="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                          class="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity border border-teal-100 dark:border-teal-800/30"
                           @click="openFile('/storage/' + fileInfo.path, msg.user_id === auth.user.id, getFileName(fileInfo), msg.id, fileInfo.path)"
                         >
                       </div>
@@ -731,7 +740,10 @@ watch(() => props.chat?.messages?.length, () => {
                   <!-- Message text -->
                   <p v-if="msg.message" class="text-sm mt-2">{{ msg.message }}</p>
                   
-                  <p class="text-xs text-gray-300 mt-1">
+                  <p class="text-xs text-teal-100 mt-1" v-if="msg.user_id === auth.user.id">
+                    {{ formatTimeOnly(msg.created_at) }}
+                  </p>
+                  <p class="text-xs text-teal-600 dark:text-teal-400 mt-1" v-else>
                     {{ formatTimeOnly(msg.created_at) }}
                   </p>
                 </div>
@@ -739,13 +751,13 @@ watch(() => props.chat?.messages?.length, () => {
             </div>
           </div>
 
-          <!-- Scroll to bottom button (bottom left corner) -->
+          <!-- Scroll to bottom button -->
           <transition name="fade">
             <button
               v-if="showScrollToBottom && chat.messages.length > 0"
               @click="scrollToBottom"
-              class="absolute left-4 bottom-24 bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 z-10"
-              style="box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3)"
+              class="absolute left-4 bottom-24 bg-gradient-to-br from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white p-3 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 z-10"
+              style="box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3)"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
@@ -754,9 +766,9 @@ watch(() => props.chat?.messages?.length, () => {
           </transition>
 
           <!-- Attachments Preview -->
-          <div v-if="attachments.length > 0" class="border-t border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800">
+          <div v-if="attachments.length > 0" class="border-t border-teal-200 dark:border-teal-800/30 p-3 bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/10 dark:to-emerald-900/10">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-medium text-gray-600 dark:text-gray-300">
+              <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
                 Attachments ({{ attachments.length }})
               </span>
               <button 
@@ -773,7 +785,7 @@ watch(() => props.chat?.messages?.length, () => {
                 :key="index"
                 class="relative group"
               >
-                <div class="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+                <div class="w-20 h-20 bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 rounded-lg overflow-hidden border border-teal-200 dark:border-teal-800/30">
                   <!-- Image preview -->
                   <img 
                     v-if="attachment.preview" 
@@ -794,7 +806,7 @@ watch(() => props.chat?.messages?.length, () => {
                     ×
                   </button>
                   <!-- File name -->
-                  <div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1 truncate">
+                  <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-xs p-1 truncate">
                     {{ attachment.original_name }}
                   </div>
                 </div>
@@ -803,7 +815,7 @@ watch(() => props.chat?.messages?.length, () => {
           </div>
 
           <!-- Message Input -->
-          <form @submit.prevent="sendMessage" class="flex items-center gap-2 border-t border-gray-200 dark:border-gray-700 p-3 relative">
+          <form @submit.prevent="sendMessage" class="flex items-center gap-2 border-t border-teal-200 dark:border-teal-800/30 p-3 relative bg-gradient-to-r from-white to-teal-50/50 dark:from-gray-800 dark:to-teal-900/10">
             <!-- Hidden file input -->
             <input 
               ref="fileInput"
@@ -812,15 +824,15 @@ watch(() => props.chat?.messages?.length, () => {
               class="hidden" 
               @change="handleFileSelect"
               accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.zip,.rar,.7z,.tar,.gz"
-            >
+            />
             
             <!-- Attachment button with dropdown -->
             <div class="relative">
               <button 
                 @click="showAttachmentMenu = !showAttachmentMenu"
                 type="button"
-                class="p-2 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                :class="{ 'text-indigo-600 dark:text-indigo-400': showAttachmentMenu }"
+                class="p-2 text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 transition-colors hover:bg-teal-100 dark:hover:bg-teal-900/30 rounded-lg"
+                :class="{ 'text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/30': showAttachmentMenu }"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -830,12 +842,12 @@ watch(() => props.chat?.messages?.length, () => {
               <!-- Attachment menu dropdown -->
               <div 
                 v-if="showAttachmentMenu" 
-                class="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10"
+                class="absolute bottom-full left-0 mb-2 w-48 bg-gradient-to-b from-white to-teal-50 dark:from-gray-800 dark:to-teal-900/20 rounded-lg shadow-lg border border-teal-200 dark:border-teal-800/30 z-10"
               >
                 <button 
                   @click="triggerFileInput"
                   type="button"
-                  class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  class="w-full px-4 py-2 text-left text-sm text-teal-700 dark:text-teal-300 hover:bg-gradient-to-r hover:from-teal-50 hover:to-emerald-50 dark:hover:from-teal-900/30 dark:hover:to-emerald-900/30 flex items-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -845,7 +857,7 @@ watch(() => props.chat?.messages?.length, () => {
                 <button 
                   @click="triggerFileInput"
                   type="button"
-                  class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  class="w-full px-4 py-2 text-left text-sm text-teal-700 dark:text-teal-300 hover:bg-gradient-to-r hover:from-teal-50 hover:to-emerald-50 dark:hover:from-teal-900/30 dark:hover:to-emerald-900/30 flex items-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -860,7 +872,7 @@ watch(() => props.chat?.messages?.length, () => {
               v-model="newMessage"
               type="text"
               placeholder="Type your message..."
-              class="flex-1 border rounded-lg p-2 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:ring focus:ring-indigo-300 transition-colors"
+              class="flex-1 border border-teal-200 dark:border-teal-800/30 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
               @keydown.enter.exact.prevent="sendMessage"
             />
             
@@ -868,7 +880,7 @@ watch(() => props.chat?.messages?.length, () => {
             <button
               type="submit"
               :disabled="isUploading || (!newMessage.trim() && attachments.length === 0)"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              class="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white px-5 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg hover:shadow-xl"
             >
               <span v-if="isUploading">Sending...</span>
               <span v-else>Send</span>
@@ -883,14 +895,14 @@ watch(() => props.chat?.messages?.length, () => {
         </div>
 
         <!-- Empty State -->
-        <div v-else class="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500">
+        <div v-else class="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gradient-to-b from-teal-50/20 to-white dark:from-teal-900/5 dark:to-gray-800">
           <div class="text-center">
             <div class="text-lg font-medium mb-2">Select a chat</div>
             <p class="text-sm">Choose a conversation from the sidebar to start messaging</p>
           </div>
         </div>
       </div>
-    </main>
+    </div>
   </Layout>
 </template>
 
@@ -903,5 +915,36 @@ watch(() => props.chat?.messages?.length, () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(13, 148, 136, 0.05);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #0d9488, #059669);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #0d9488, #047857);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: rgba(19, 78, 74, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #115e59, #064e3b);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #0f766e, #065f46);
 }
 </style>

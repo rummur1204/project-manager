@@ -4,62 +4,118 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\Task;
-use App\Models\User;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        // Stats
+        $user = Auth::user();
+        
+        // Start query for projects
+        $projectQuery = Project::query();
+        
+        // Check if user has permission to view all projects
+        if (!$user->hasPermissionTo('view all projects')) {
+            $projectQuery->where(function($query) use ($user) {
+                $query->where('created_by', $user->id)
+                      ->orWhere('client_id', $user->id) // Include clients
+                      ->orWhereHas('users', function($q) use ($user) {
+                          $q->where('user_id', $user->id);
+                      });
+            });
+        }
+        
+        $userProjects = $projectQuery->get();
+        $projectIds = $userProjects->pluck('id');
+        
+        // Get task counts by status
+        $completedTasksCount = Task::whereIn('project_id', $projectIds)
+            ->where('status', 'completed')
+            ->count();
+        
+        $inProgressTasksCount = Task::whereIn('project_id', $projectIds)
+            ->where('status', 'in_progress')
+            ->orWhere('status', 'in progress')
+            ->count();
+        
+        $pendingTasksCount = Task::whereIn('project_id', $projectIds)
+            ->where('status', 'pending')
+            ->count();
+        
+        $totalTasksCount = Task::whereIn('project_id', $projectIds)->count();
+        
+        // Stats with task status breakdown
         $stats = [
-            'projects' => Project::count(),
-            'tasks' => Task::count(),
-            'completedTasks' => Task::where('status', 'completed')->count(),
-            'users' => User::count(),
+            'projects' => $userProjects->count(),
+            'tasks' => $totalTasksCount,
+            'completedTasks' => $completedTasksCount,
+            'inProgressTasks' => $inProgressTasksCount,
+            'pendingTasks' => $pendingTasksCount,
         ];
 
-        // Upcoming deadlines (next 7 days)
-        // $upcomingDeadlines = Project::whereDate('due_date', '>=', now())
-        //     ->whereDate('due_date', '<=', now()->addDays(7))
-        //     ->orderBy('due_date')
-        //     ->select('title', 'due_date')
-        //     ->get();
+        // Upcoming deadlines with progress data
+        $upcomingDeadlines = $userProjects
+            ->filter(function($project) {
+                return $project->due_date && 
+                       \Carbon\Carbon::parse($project->due_date)->isFuture();
+            })
+            ->sortBy('due_date')
+            ->take(5)
+            ->map(function($project) {
+                $totalTasks = $project->tasks()->count();
+                $completedTasks = $project->tasks()->where('status', 'completed')->count();
+                $progress = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0;
+                $dueDate = \Carbon\Carbon::parse($project->due_date);
+                $now = now();
+                
+                // Calculate whole days difference (not fractional)
+                if ($now->gt($dueDate)) {
+                    // Past date - negative days
+                    $daysLeft = -$now->diffInDays($dueDate);
+                } else {
+                    // Future date - positive days
+                    $daysLeft = $now->diffInDays($dueDate, false); // false = not absolute
+                }
+                
+                return [
+                    'id' => $project->id,
+                    'title' => $project->title,
+                    'due_date' => $dueDate->format('M d, Y'),
+                    'days_left' => (int) $daysLeft, // Cast to integer for whole days
+                    'progress' => $progress,
+                    'total_tasks' => $totalTasks,
+                    'completed_tasks' => $completedTasks,
+                    'status' => $project->status,
+                ];
+            })
+            ->values();
 
-        // Recent activity (you can replace this with your own activity logs table)
-        // $recentActivity = DB::table('activities') // or a custom log table
-        //     ->orderBy('created_at', 'desc')
-        //     ->take(10)
-        //     ->get();
-        $recentActivity = Project::latest()
-    ->take(10)
-    ->get(['title', 'created_at'])
-    ->map(function($project) {
-        return [
-            'user' => 'System',
-            'action' => "Created project: {$project->title}",
-            'time' => $project->created_at->diffForHumans()
-        ];
-    });
+        // Project progress analytics for bar chart
+        $projectAnalytics = $userProjects
+            ->map(function($project) {
+                $totalTasks = $project->tasks()->count();
+                $completedTasks = $project->tasks()->where('status', 'completed')->count();
+                
+                return [
+                    'id' => $project->id,
+                    'title' => $project->title,
+                    'progress' => $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0,
+                    'total_tasks' => $totalTasks,
+                    'completed_tasks' => $completedTasks,
+                    'status' => $project->status,
+                ];
+            })
+            ->sortByDesc('progress')
+            ->take(5)
+            ->values();
 
-$upcomingDeadlines = Project::whereNotNull('due_date')
-    ->whereDate('due_date', '>=', now()->toDateString())
-    ->orderBy('due_date', 'asc')
-    ->take(5)
-    ->get(['id','title','due_date']);
-
-// Notifications: project deadlines within next 3 days
-$notifications = Project::whereNotNull('due_date')
-    ->whereDate('due_date', '<=', now()->addDays(3)->toDateString())
-    ->whereDate('due_date', '>=', now()->toDateString())
-    ->orderBy('due_date','asc')
-    ->get(['id','title','due_date']);
         return Inertia::render('Dashboard/Index', [
             'stats' => $stats,
             'upcomingDeadlines' => $upcomingDeadlines,
-            'recentActivity' => $recentActivity,
-             'notifications' => $notifications,
+            'projectAnalytics' => $projectAnalytics,
+            'userName' => $user->name,
         ]);
     }
 }
