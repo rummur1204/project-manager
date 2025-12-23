@@ -1,11 +1,14 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { usePage, router } from '@inertiajs/vue3'
 import Layout from '@/Pages/Dashboard/Layout.vue'
-import { Users, Shield, Sparkles, X, AlertCircle } from 'lucide-vue-next'
+import { Users, Shield, Sparkles, X, AlertCircle, Search } from 'lucide-vue-next'
 
 // Local tab state - purely client-side
 const tab = ref('users')
+
+// Search state
+const searchQuery = ref('')
 
 // Modal states
 const showAddUserModal = ref(false)
@@ -49,7 +52,42 @@ const flash = computed(() => page.props.flash || {})
 // Tab switch - CLIENT-SIDE ONLY
 const switchTab = (name) => {
   tab.value = name
+  // Clear search when switching tabs
+  searchQuery.value = ''
   // NO router.get() call here - this is purely client-side
+}
+
+// Filtered data based on search
+const filteredUsers = computed(() => {
+  if (!searchQuery.value) return users.value
+  const query = searchQuery.value.toLowerCase()
+  return users.value.filter(user => 
+    user.name.toLowerCase().includes(query) || 
+    user.email.toLowerCase().includes(query) ||
+    (user.roles?.[0]?.name.toLowerCase().includes(query) || '')
+  )
+})
+
+const filteredRoles = computed(() => {
+  if (!searchQuery.value) return roles.value
+  const query = searchQuery.value.toLowerCase()
+  return roles.value.filter(role => 
+    role.name.toLowerCase().includes(query) ||
+    role.permissions?.some(p => p.name.toLowerCase().includes(query))
+  )
+})
+
+const filteredActivityTypes = computed(() => {
+  if (!searchQuery.value) return activityTypes.value
+  const query = searchQuery.value.toLowerCase()
+  return activityTypes.value.filter(type => 
+    type.name.toLowerCase().includes(query)
+  )
+})
+
+// Clear search
+const clearSearch = () => {
+  searchQuery.value = ''
 }
 
 // ===========================================
@@ -282,25 +320,11 @@ const selectAllPermissions = () => {
 const clearAllPermissions = () => {
   roleForm.value.permissions = []
 }
-
-// Initialize tab from URL on page load (optional)
-const initTabFromUrl = () => {
-  const urlParams = new URLSearchParams(window.location.search)
-  const tabParam = urlParams.get('tab')
-  if (tabParam && ['users', 'roles', 'activitytypes'].includes(tabParam)) {
-    tab.value = tabParam
-  }
-}
-
-// Call this on component mount if you want URL sync
-// initTabFromUrl()
 </script>
 
 <template>
   <Layout>
     <div class="max-w-7xl mx-auto p-4 md:p-6">
-      
-
       <!-- Flash Messages -->
       <div v-if="flash.success" class="mb-6 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg">
         <div class="flex items-center">
@@ -331,33 +355,63 @@ const initTabFromUrl = () => {
       </div>
 
       <!-- Tabs - PURELY CLIENT-SIDE -->
+      <div class="mb-6">
+        <div class="border-b border-teal-200 dark:border-teal-800/30">
+          <nav class="-mb-px flex space-x-8">
+            <button @click="switchTab('users')"
+                    :class="['py-3 px-1 border-b-2 font-medium text-sm transition-all duration-200', tab === 'users' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 dark:hover:border-teal-600']">
+              <div class="flex items-center space-x-2">
+                <Users class="h-4 w-4" />
+                <span>Users</span>
+              </div>
+            </button>
+            <button @click="switchTab('roles')"
+                    :class="['py-3 px-1 border-b-2 font-medium text-sm transition-all duration-200', tab === 'roles' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 dark:hover:border-teal-600']">
+              <div class="flex items-center space-x-2">
+                <Shield class="h-4 w-4" />
+                <span>Roles</span>
+              </div>
+            </button>
+            <button @click="switchTab('activitytypes')"
+                    :class="['py-3 px-1 border-b-2 font-medium text-sm transition-all duration-200', tab === 'activitytypes' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 dark:hover:border-teal-600']">
+              <div class="flex items-center space-x-2">
+                <Sparkles class="h-4 w-4" />
+                <span>Activity Types</span>
+              </div>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Search Bar - Centered beneath tabs -->
       <div class="mb-8">
-  <div class="border-b border-teal-200 dark:border-teal-800/30">
-    <nav class="-mb-px flex space-x-8">
-      <button @click="switchTab('users')"
-              :class="['py-3 px-1 border-b-2 font-medium text-sm transition-all duration-200', tab === 'users' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 dark:hover:border-teal-600']">
-        <div class="flex items-center space-x-2">
-          <Users class="h-4 w-4" />
-          <span>Users</span>
+        <div class="flex justify-center">
+          <div class="w-full max-w-md">
+            <div class="relative">
+              <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input v-model="searchQuery" 
+                     :placeholder="`Search ${tab === 'users' ? 'users' : tab === 'roles' ? 'roles' : 'activity types'}...`"
+                     class="w-full pl-10 pr-10 py-2.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200" />
+              <button v-if="searchQuery" @click="clearSearch" 
+                      class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                <X class="h-4 w-4" />
+              </button>
+            </div>
+            <p v-if="searchQuery" class="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+              Found 
+              <span v-if="tab === 'users'" class="text-teal-600 dark:text-teal-400 font-medium">
+                {{ filteredUsers.length }} user{{ filteredUsers.length !== 1 ? 's' : '' }}
+              </span>
+              <span v-if="tab === 'roles'" class="text-teal-600 dark:text-teal-400 font-medium">
+                {{ filteredRoles.length }} role{{ filteredRoles.length !== 1 ? 's' : '' }}
+              </span>
+              <span v-if="tab === 'activitytypes'" class="text-teal-600 dark:text-teal-400 font-medium">
+                {{ filteredActivityTypes.length }} activity type{{ filteredActivityTypes.length !== 1 ? 's' : '' }}
+              </span>
+            </p>
+          </div>
         </div>
-      </button>
-      <button @click="switchTab('roles')"
-              :class="['py-3 px-1 border-b-2 font-medium text-sm transition-all duration-200', tab === 'roles' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 dark:hover:border-teal-600']">
-        <div class="flex items-center space-x-2">
-          <Shield class="h-4 w-4" />
-          <span>Roles</span>
-        </div>
-      </button>
-      <button @click="switchTab('activitytypes')"
-              :class="['py-3 px-1 border-b-2 font-medium text-sm transition-all duration-200', tab === 'activitytypes' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 dark:hover:border-teal-600']">
-        <div class="flex items-center space-x-2">
-          <Sparkles class="h-4 w-4" />
-          <span>Activity Types</span>
-        </div>
-      </button>
-    </nav>
-  </div>
-</div>
+      </div>
 
       <!-- USERS TAB -->
       <div v-if="tab === 'users'" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
@@ -389,7 +443,7 @@ const initTabFromUrl = () => {
             </thead>
 
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr v-for="u in users" :key="u.id"
+              <tr v-for="u in filteredUsers" :key="u.id"
                   class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-150">
                 <td class="py-4 px-4">
                   <div class="text-sm font-medium dark:text-gray-300">{{ u.name }}</div>
@@ -420,12 +474,16 @@ const initTabFromUrl = () => {
                   </div>
                 </td>
               </tr>
-              <tr v-if="users.length === 0">
+              <tr v-if="filteredUsers.length === 0">
                 <td colspan="4" class="py-12 px-4 text-center">
                   <div class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
                     <Users class="h-12 w-12 mb-3 opacity-50" />
-                    <p class="text-sm">No users found</p>
-                    <p class="text-xs mt-1">Click "New User" to add your first user</p>
+                    <p class="text-sm">{{ searchQuery ? 'No matching users found' : 'No users found' }}</p>
+                    <p v-if="!searchQuery" class="text-xs mt-1">Click "New User" to add your first user</p>
+                    <button v-else @click="clearSearch" 
+                            class="mt-2 text-teal-600 dark:text-teal-400 hover:underline text-sm">
+                      Clear search
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -463,7 +521,7 @@ const initTabFromUrl = () => {
             </thead>
 
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr v-for="role in roles" :key="role.id"
+              <tr v-for="role in filteredRoles" :key="role.id"
                   class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-150">
                 <td class="py-4 px-4">
                   <div class="text-sm font-medium dark:text-gray-300">{{ role.name }}</div>
@@ -497,12 +555,16 @@ const initTabFromUrl = () => {
                   </div>
                 </td>
               </tr>
-              <tr v-if="roles.length === 0">
+              <tr v-if="filteredRoles.length === 0">
                 <td colspan="3" class="py-12 px-4 text-center">
                   <div class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
                     <Shield class="h-12 w-12 mb-3 opacity-50" />
-                    <p class="text-sm">No roles found</p>
-                    <p class="text-xs mt-1">Click "New Role" to add your first role</p>
+                    <p class="text-sm">{{ searchQuery ? 'No matching roles found' : 'No roles found' }}</p>
+                    <p v-if="!searchQuery" class="text-xs mt-1">Click "New Role" to add your first role</p>
+                    <button v-else @click="clearSearch" 
+                            class="mt-2 text-teal-600 dark:text-teal-400 hover:underline text-sm">
+                      Clear search
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -539,7 +601,7 @@ const initTabFromUrl = () => {
             </thead>
 
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr v-for="at in activityTypes" :key="at.id"
+              <tr v-for="at in filteredActivityTypes" :key="at.id"
                   class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-150">
                 <td class="py-4 px-4">
                   <div class="text-sm font-medium dark:text-gray-300">{{ at.name }}</div>
@@ -558,12 +620,16 @@ const initTabFromUrl = () => {
                   </div>
                 </td>
               </tr>
-              <tr v-if="activityTypes.length === 0">
+              <tr v-if="filteredActivityTypes.length === 0">
                 <td colspan="2" class="py-12 px-4 text-center">
                   <div class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
                     <Sparkles class="h-12 w-12 mb-3 opacity-50" />
-                    <p class="text-sm">No activity types found</p>
-                    <p class="text-xs mt-1">Click "New Activity Type" to add your first type</p>
+                    <p class="text-sm">{{ searchQuery ? 'No matching activity types found' : 'No activity types found' }}</p>
+                    <p v-if="!searchQuery" class="text-xs mt-1">Click "New Activity Type" to add your first type</p>
+                    <button v-else @click="clearSearch" 
+                            class="mt-2 text-teal-600 dark:text-teal-400 hover:underline text-sm">
+                      Clear search
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -574,7 +640,7 @@ const initTabFromUrl = () => {
     </div>
 
     <!-- =========================================== -->
-    <!-- MODALS (remain exactly the same) -->
+    <!-- MODALS -->
     <!-- =========================================== -->
 
     <!-- Add/Edit User Modal -->

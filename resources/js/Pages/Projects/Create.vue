@@ -286,7 +286,7 @@ const submit = () => {
 
       <!-- Submit -->
       <div class="mt-6">
-        <button @click="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded" :disabled="form.processing">
+        <button @click="submit" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded" :disabled="form.processing">
           Create Project
         </button>
       </div>

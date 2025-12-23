@@ -16,7 +16,7 @@ const activeMainTab = ref('overview')
 const activeTaskTab = ref('pending')
 const activeActivityTypeTab = ref('')
 const activeActivityStatusTab = ref('pending')
-const activeCommentTab = ref('new') // Changed default to 'new'
+const activeCommentTab = ref('new')
 
 /* ---------- Modals & Forms ---------- */
 const showAddTaskModal = ref(false)
@@ -60,7 +60,6 @@ const editTasks = ref([])
 const editingTaskIndex = ref(null)
 
 /* ---------- Comments ---------- */
-// Initialize comments with newest first
 const comments = ref(
   (props.project.comments || [])
     .map(comment => ({
@@ -68,7 +67,6 @@ const comments = ref(
       seen_by: Array.isArray(comment.seen_by) ? comment.seen_by : [],
       is_editing: false,
       edit_message: comment.message,
-      // Ensure user object exists
       user: comment.user || { id: null, name: 'Unknown' }
     }))
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -77,7 +75,6 @@ const comments = ref(
 const newComment = ref('')
 const commentsContainer = ref(null)
 
-// Watch for changes in props to update comments
 watch(() => props.project.comments, (newComments) => {
   if (newComments) {
     comments.value = newComments
@@ -102,15 +99,12 @@ const currentDeveloper = computed(() =>
 )
 const hasAccepted = computed(() => currentDeveloper.value?.pivot?.accepted)
 const projectStatus = computed(() => {
-  // Use the same logic as index page
   const progress = calculateWeightedProgress(props.project.tasks)
   
-  // Auto-completion at 100%
   if (progress >= 100) {
     return 'Completed'
   }
   
-  // Check if any developer has accepted this project
   const hasAnyAcceptedDeveloper = (props.project.developers || []).some(d => d.pivot?.accepted)
   
   if (hasAnyAcceptedDeveloper) {
@@ -167,7 +161,6 @@ const myCommentsCount = computed(() => {
 const filteredTasks = computed(() => {
   const tasks = props.project.tasks || []
   
-  // If user is a developer, only show tasks assigned to them
   let filtered = tasks
   if (isAssignedDeveloper.value && hasAccepted.value) {
     filtered = tasks.filter(task => 
@@ -175,7 +168,6 @@ const filteredTasks = computed(() => {
     )
   }
   
-  // Filter by status tab
   if (activeTaskTab.value === 'pending') return filtered.filter(t => t.status === 'Pending')
   if (activeTaskTab.value === 'inprogress') return filtered.filter(t => t.status === 'In Progress')
   if (activeTaskTab.value === 'completed') return filtered.filter(t => t.status === 'Completed')
@@ -187,7 +179,6 @@ const filteredTasks = computed(() => {
 const filteredActivities = computed(() => {
   const activities = props.project.activities || []
   
-  // If user is a developer who has accepted the project, only show activities assigned to them
   let filtered = activities
   if (isAssignedDeveloper.value && hasAccepted.value) {
     filtered = activities.filter(activity => 
@@ -195,12 +186,10 @@ const filteredActivities = computed(() => {
     )
   }
   
-  // Filter by activity type
   if (activeActivityTypeTab.value) {
     filtered = filtered.filter(activity => activity.activity_type_id == activeActivityTypeTab.value)
   }
   
-  // Filter by status
   if (activeActivityStatusTab.value === 'pending') return filtered.filter(a => a.status === 'Pending')
   if (activeActivityStatusTab.value === 'inprogress') return filtered.filter(a => a.status === 'In Progress')
   if (activeActivityStatusTab.value === 'completed') return filtered.filter(a => a.status === 'Completed')
@@ -226,7 +215,6 @@ const filteredComments = computed(() => {
     )
   }
   
-  // Sort by newest first (already sorted in main array, but sort again to be safe)
   return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 })
 
@@ -378,9 +366,8 @@ const updateAllTasksWithNewOnes = () => {
 
 /* ---------- Edit Modal Functions ---------- */
 const openEditTaskModal = () => {
-  // FILTER OUT COMPLETED TASKS - Only show Pending and In Progress tasks
   editTasks.value = (props.project.tasks || [])
-    .filter(t => t.status !== 'Completed')  // Exclude completed tasks
+    .filter(t => t.status !== 'Completed')
     .map(t => ({
       id: t.id,
       title: t.title,
@@ -435,7 +422,6 @@ const removeTaskFromEditList = (index) => {
   else if (editingTaskIndex.value > index) editingTaskIndex.value--
 }
 
-// FIXED: Add missing computed properties for Edit Modal
 const normalizedEditTasks = computed(() => {
   const totalRawWeight = editTasks.value.reduce((sum, t) => sum + Number(t.raw_weight || 0), 0)
   if (totalRawWeight === 0) return editTasks.value.map(t => ({ ...t, normalized_weight: 0 }))
@@ -450,7 +436,6 @@ const totalNormalizedWeightForEdit = computed(() => {
   return normalizedEditTasks.value.reduce((sum, t) => sum + Number(t.normalized_weight || 0), 0).toFixed(2)
 })
 
-// FIXED: Update all tasks using bulk update
 const updateAllTasks = () => {
   if (!editTasks.value.length) return alert('No tasks to update.')
   
@@ -491,7 +476,6 @@ const markTaskAsSeen = (taskId) => {
     preserveScroll: true,
     preserveState: true,
     onSuccess: () => {
-      // Update the local state to reflect the change
       const task = props.project.tasks?.find(t => t.id === taskId)
       if (task) task.status = 'In Progress'
     }
@@ -506,7 +490,6 @@ const toggleTaskCompletion = (taskId, currentStatus) => {
     preserveScroll: true,
     preserveState: true,
     onSuccess: () => {
-      // Update the local state to reflect the change
       const task = props.project.tasks?.find(t => t.id === taskId)
       if (task) task.status = newStatus
     }
@@ -522,99 +505,74 @@ const deleteTask = (taskId) => {
 }
 
 /* ---------- Task Permission Checks ---------- */
-// Check if user can edit tasks in this project
 const canEditTasks = computed(() => {
-  // Check if user has edit tasks permission or is project creator
   return user.permissions?.includes('edit tasks') || 
          props.project.created_by === user.id
 })
 
-// Check if user can delete tasks in this project
 const canDeleteTasks = computed(() => {
-  // Check if user has delete tasks permission or is project creator
   return user.permissions?.includes('delete tasks') || 
          props.project.created_by === user.id
 })
 
-// Check if user can mark tasks as seen
 const canMarkAsSeen = computed(() => {
-  // Assigned developers AND users with edit permission can mark tasks as seen
   return (isAssignedDeveloper.value && hasAccepted.value) || canEditTasks.value
 })
 
-// Check if user can toggle task completion
 const canToggleCompletion = computed(() => {
-  // Assigned developers AND users with edit permission can toggle completion
   return (isAssignedDeveloper.value && hasAccepted.value) || canEditTasks.value
 })
 
-/* ---------- Check if user is assigned to specific task ---------- */
 const isAssignedToTask = (task) => {
   if (!isAssignedDeveloper.value) return false
   return task.developers?.some(dev => dev.id === user.id) || false
 }
 
 /* ---------- Activities ---------- */
-// Activity types from props
 const activityTypes = computed(() => props.activity_types || [])
 
 /* ---------- Activity Permission Checks ---------- */
-// Check if user can create activities in this project
 const canCreateActivities = computed(() => {
-  // Check if user has create activities permission or is project creator
   return user.permissions?.includes('create activities') || 
          props.project.created_by === user.id
 })
 
-// Check if user can edit this specific activity
 const canEditActivity = computed(() => (activity) => {
   if (activity.status === 'Completed') return false
-  // Project creator can edit any activity in their project
   if (props.project.created_by === user.id) {
     return true
   }
   
-  // Check if user has edit activities permission
   if (user.permissions?.includes('edit activities')) {
-    // If user has global edit permission, they can edit any activity
     return true
   }
   
   return false
 })
 
-// Check if user can delete this specific activity
 const canDeleteActivity = computed(() => (activity) => {
-  // Project creator can delete any activity in their project
   if (props.project.created_by === user.id) {
     return true
   }
   
-  // Check if user has delete activities permission
   if (user.permissions?.includes('delete activities')) {
-    // Users with delete permission can delete activities they created
     return activity.created_by === user.id
   }
   
   return false
 })
 
-// Check if user can mark activity as seen
 const canMarkActivityAsSeen = computed(() => (activity) => {
-  // If activity is not Pending, can't mark as seen
   if (activity.status !== 'Pending') return false
   
-  // Project creator can mark any activity as seen
   if (props.project.created_by === user.id) {
     return true
   }
   
-  // Check if user has edit activities permission
   if (user.permissions?.includes('edit activities')) {
     return true
   }
   
-  // Assigned developers can mark activities assigned to them as seen
   if (isAssignedDeveloper.value && hasAccepted.value) {
     return activity.developers?.some(dev => dev.id === user.id) || false
   }
@@ -622,22 +580,17 @@ const canMarkActivityAsSeen = computed(() => (activity) => {
   return false
 })
 
-// Check if user can toggle activity completion
 const canToggleActivityCompletion = computed(() => (activity) => {
-  // If activity is Pending, can't toggle completion
   if (activity.status === 'Pending') return false
   
-  // Project creator can toggle any activity completion
   if (props.project.created_by === user.id) {
     return true
   }
   
-  // Check if user has edit activities permission
   if (user.permissions?.includes('edit activities')) {
     return true
   }
   
-  // Assigned developers can toggle completion for activities assigned to them
   if (isAssignedDeveloper.value && hasAccepted.value) {
     return activity.developers?.some(dev => dev.id === user.id) || false
   }
@@ -645,7 +598,6 @@ const canToggleActivityCompletion = computed(() => (activity) => {
   return false
 })
 
-// Check if user is assigned to specific activity
 const isAssignedToActivity = (activity) => {
   if (!isAssignedDeveloper.value) return false
   return activity.developers?.some(dev => dev.id === user.id) || false
@@ -659,7 +611,6 @@ const markActivityAsSeen = (activityId) => {
     preserveScroll: true,
     preserveState: true,
     onSuccess: () => {
-      // Update the local state to reflect the change
       const activity = props.project.activities?.find(a => a.id === activityId)
       if (activity) activity.status = 'In Progress'
     }
@@ -674,7 +625,6 @@ const toggleActivityCompletion = (activityId, currentStatus) => {
     preserveScroll: true,
     preserveState: true,
     onSuccess: () => {
-      // Update the local state to reflect the change
       const activity = props.project.activities?.find(a => a.id === activityId)
       if (activity) activity.status = newStatus
     }
@@ -731,7 +681,6 @@ const updateActivity = () => {
   })
 }
 
-// Add Activity Modal Functions
 const openAddActivityModal = () => {
   newActivity.value = {
     title: '',
@@ -788,27 +737,21 @@ const urgencyColor = (urgency) => ({
   Normal: 'text-gray-600 dark:text-gray-300'
 }[urgency] || 'text-gray-600 dark:text-gray-300')
 
-// Scroll to top (since newest comments are at the top)
 const scrollToTop = () => nextTick(() => {
   if (commentsContainer.value) commentsContainer.value.scrollTop = 0
 })
 
-// Get developer name - FIXED to handle all users (developers, project creator, etc.)
 const getDeveloperName = (userId) => {
-  // Check if it's a project developer
   const dev = props.project.developers?.find(d => d.id === userId)
   if (dev) return dev.name
   
-  // Check if it's the project creator
   if (props.project.created_by === userId) {
     return props.project.creator?.name || 'Project Creator'
   }
   
-  // Check if it's the comment author (from comment data)
   const commentAuthor = comments.value.find(c => c.user?.id === userId)?.user
   if (commentAuthor) return commentAuthor.name
   
-  // Check if it's the current user
   if (userId === user.id) return user.name || 'You'
   
   return 'Unknown'
@@ -816,26 +759,22 @@ const getDeveloperName = (userId) => {
 
 /* ---------- Comment Actions ---------- */
 const markCommentAsSeen = (comment) => {
-  // Don't proceed if already seen
   if (comment.seen_by?.includes(user.id)) {
     return;
   }
   
   console.log('Marking comment as seen:', comment.id);
   
-  // Use Inertia router
   router.post(`/projects/${props.project.id}/comments/${comment.id}/seen`, {}, {
     preserveScroll: true,
     preserveState: true,
     onSuccess: (page) => {
       console.log('✅ Success - Flash data:', page.props.flash);
       
-      // Check if this is the comment we updated
       const flash = page.props.flash || {};
       if (flash.comment_id === comment.id && flash.seen_by) {
         console.log('✅ Found matching comment in flash data');
         
-        // Update the specific comment
         const commentIndex = comments.value.findIndex(c => c.id === comment.id);
         if (commentIndex !== -1) {
           comments.value[commentIndex].seen_by = flash.seen_by;
@@ -843,7 +782,6 @@ const markCommentAsSeen = (comment) => {
         }
       } else {
         console.log('⚠️ Flash data not found or mismatch, updating locally anyway');
-        // Update locally as fallback
         if (!comment.seen_by) comment.seen_by = [];
         if (!comment.seen_by.includes(user.id)) {
           comment.seen_by = [...comment.seen_by, user.id];
@@ -852,7 +790,6 @@ const markCommentAsSeen = (comment) => {
     },
     onError: (errors) => {
       console.error('❌ Error marking comment as seen:', errors);
-      // Update locally for better UX
       if (!comment.seen_by) comment.seen_by = [];
       if (!comment.seen_by.includes(user.id)) {
         comment.seen_by = [...comment.seen_by, user.id];
@@ -888,7 +825,7 @@ const saveEditedComment = (comment) => {
     preserveState: true,
     onSuccess: () => {
       comment.message = comment.edit_message
-      comment.urgency = detectUrgency(comment.edit_message) // Update urgency locally
+      comment.urgency = detectUrgency(comment.edit_message)
       comment.is_editing = false
     },
     onError: (errors) => {
@@ -908,29 +845,24 @@ const addComment = async (e) => {
   if (!newComment.value?.trim()) return alert('Please write a comment.')
   
   try {
-    // Create a temporary comment for immediate UI feedback
     const tempComment = {
-      id: 'temp-' + Date.now(), // Temporary ID
+      id: 'temp-' + Date.now(),
       message: newComment.value,
       urgency: detectUrgency(newComment.value),
       user: user,
-      seen_by: [user.id], // Creator sees it immediately
+      seen_by: [user.id],
       created_at: new Date().toISOString(),
       is_editing: false,
       edit_message: newComment.value
     }
     
-    // Add to the beginning of the comments array (newest first)
     comments.value.unshift(tempComment)
     
-    // Clear input
     const commentText = newComment.value
     newComment.value = ''
     
-    // Scroll to top to show new comment
     scrollToTop()
     
-    // Send to server
     const response = await router.post(`/projects/${props.project.id}/comments`, { 
       message: commentText
     }, {
@@ -938,11 +870,9 @@ const addComment = async (e) => {
       preserveState: true,
     })
     
-    // Check if we got a new comment in flash data
     if (page.props.flash?.new_comment) {
       const newCommentData = page.props.flash.new_comment
       
-      // Replace the temp comment with the real one from server
       const tempIndex = comments.value.findIndex(c => c.id === tempComment.id)
       if (tempIndex !== -1) {
         comments.value[tempIndex] = {
@@ -955,13 +885,11 @@ const addComment = async (e) => {
         console.log('✅ New comment added from flash data:', newCommentData)
       }
     } else {
-      // If no flash data, reload comments from server
       await router.reload({ 
         only: ['project'], 
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => {
-          // Update comments from fresh props
           comments.value = (props.project.comments || [])
             .map(comment => ({
               ...comment,
@@ -980,7 +908,6 @@ const addComment = async (e) => {
   } catch (error) {
     console.error('❌ Error adding comment:', error)
     
-    // Remove the temp comment on error
     const tempIndex = comments.value.findIndex(c => c.id && c.id.startsWith('temp-'))
     if (tempIndex !== -1) {
       comments.value.splice(tempIndex, 1)
@@ -1042,7 +969,7 @@ const closeModals = () => {
           <p><strong>Client:</strong> {{ props.project.client?.name  }}</p>
         </div>
 
-          <!-- Progress Bar -->
+        <!-- Progress Bar -->
         <div class="mb-8">
           <div class="flex justify-between items-center mb-2">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Project Progress</h3>
@@ -1051,10 +978,11 @@ const closeModals = () => {
             </span>
           </div>
           <div class="w-full bg-gray-200 dark:bg-gray-700 h-4 rounded-full overflow-hidden">
-  <div class="bg-gradient-to-r from-teal-500 to-emerald-600 h-4 rounded-full transition-all duration-500"
-       :style="{ width: calculateWeightedProgress(props.project.tasks) + '%' }"></div>
-</div>
+            <div class="bg-gradient-to-r from-teal-500 to-emerald-600 h-4 rounded-full transition-all duration-500"
+                 :style="{ width: calculateWeightedProgress(props.project.tasks) + '%' }"></div>
+          </div>
         </div>
+        
         <!-- Project Info Cards Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <!-- Developers Card -->
@@ -1098,543 +1026,537 @@ const closeModals = () => {
           </div>
         </div>
 
-        <!-- Accept / Decline -->
-        <!-- <div v-if="isAssignedDeveloper && !hasAccepted" class="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Project Invitation</h3>
-              <p class="text-gray-600 dark:text-gray-400">You've been invited to work on this project. Please accept or decline.</p>
-            </div>
-            <div class="flex gap-3">
-              <button @click="acceptProject" class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow hover:shadow-lg transition-all">
-                Accept Project
-              </button>
-              <button @click="declineProject" class="bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white px-6 py-3 rounded-lg font-medium shadow hover:shadow-lg transition-all">
-                Decline
-              </button>
-            </div>
-          </div>
-        </div> -->
-
-      
-
-        <!-- Enhanced Main Tabs -->
+        <!-- VERTICAL TABS LAYOUT -->
         <div class="mb-6">
-          <div class="bg-white dark:bg-gray-800 rounded-xl shadow">
-            <div class="border-b border-gray-200 dark:border-gray-700">
-              <nav class="flex space-x-1 p-2">
-                <button @click="activeMainTab = 'overview'"
-                        :class="[
-                          'relative flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all duration-300',
-                          activeMainTab === 'overview'
-                            ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                        ]">
-                  <div class="flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+            <!-- Mobile: Stack tabs above content -->
+            <div class="flex flex-col">
+              <!-- Vertical Tabs - Always vertical, no horizontal scrolling -->
+              <div class="border-b border-gray-200 dark:border-gray-700 p-4">
+                <nav class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <button @click="activeMainTab = 'overview'"
+                          :class="[
+                            'flex flex-col items-center justify-center p-4 rounded-lg font-medium text-sm transition-all duration-300',
+                            activeMainTab === 'overview'
+                              ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                          ]">
+                    <svg class="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                     </svg>
-                    Overview
-                  </div>
-                </button>
-                <button @click="activeMainTab = 'tasks'"
-                        :class="[
-                          'relative flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all duration-300',
-                          activeMainTab === 'tasks'
-                            ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                        ]">
-                  <div class="flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                    </svg>
-                    Tasks
-                    <span v-if="pendingTasksCount > 0" class="px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300">
-                      {{ pendingTasksCount }}
-                    </span>
-                  </div>
-                </button>
-                <button @click="activeMainTab = 'activities'"
-                        :class="[
-                          'relative flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all duration-300',
-                          activeMainTab === 'activities'
-                            ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                        ]">
-                  <div class="flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                    </svg>
-                    Activities
-                    <span v-if="pendingActivitiesCount > 0" class="px-2 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
-                      {{ pendingActivitiesCount }}
-                    </span>
-                  </div>
-                </button>
-                <button @click="activeMainTab = 'comments'"
-                        :class="[
-                          'relative flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all duration-300',
-                          activeMainTab === 'comments'
-                            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                        ]">
-                  <div class="flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-                    </svg>
-                    Comments
-                    <span v-if="newCommentsCount > 0" class="px-2 py-0.5 text-xs rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-300">
-                      {{ newCommentsCount }}
-                    </span>
-                  </div>
-                </button>
-              </nav>
-            </div>
-
-            <div class="p-6">
-              <!-- Overview content -->
-              <div v-if="activeMainTab === 'overview'">
-                <section class="mb-6">
-                  <h3 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Overview</h3>
-                  <p class="text-gray-700 dark:text-gray-300 whitespace-pre-line">
-                    {{ props.project.description }}
-                  </p>
-                </section>
+                    <span>Overview</span>
+                  </button>
+                  
+                  <button @click="activeMainTab = 'tasks'"
+                          :class="[
+                            'flex flex-col items-center justify-center p-4 rounded-lg font-medium text-sm transition-all duration-300',
+                            activeMainTab === 'tasks'
+                              ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                          ]">
+                    <div class="relative">
+                      <svg class="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                      </svg>
+                      <span v-if="pendingTasksCount > 0" class="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300">
+                        {{ pendingTasksCount }}
+                      </span>
+                    </div>
+                    <span>Tasks</span>
+                  </button>
+                  
+                  <button @click="activeMainTab = 'activities'"
+                          :class="[
+                            'flex flex-col items-center justify-center p-4 rounded-lg font-medium text-sm transition-all duration-300',
+                            activeMainTab === 'activities'
+                              ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                          ]">
+                    <div class="relative">
+                      <svg class="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                      </svg>
+                      <span v-if="pendingActivitiesCount > 0" class="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
+                        {{ pendingActivitiesCount }}
+                      </span>
+                    </div>
+                    <span>Activities</span>
+                  </button>
+                  
+                  <button @click="activeMainTab = 'comments'"
+                          :class="[
+                            'flex flex-col items-center justify-center p-4 rounded-lg font-medium text-sm transition-all duration-300',
+                            activeMainTab === 'comments'
+                              ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                          ]">
+                    <div class="relative">
+                      <svg class="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                      </svg>
+                      <span v-if="newCommentsCount > 0" class="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-300">
+                        {{ newCommentsCount }}
+                      </span>
+                    </div>
+                    <span>Comments</span>
+                  </button>
+                </nav>
               </div>
 
-              <!-- Tasks Tab -->
-              <div v-if="activeMainTab === 'tasks'" class="mb-8">
-                <div class="flex justify-between items-center mb-6">
-                  <!-- Enhanced Task Subtabs -->
-                  <div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 p-1">
-                    <button @click="activeTaskTab = 'pending'"
-                            :class="[
-                              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
-                              activeTaskTab === 'pending'
-                                ? 'bg-blue-500 text-white shadow'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-                            ]">
-                      Pending ({{ pendingTasksCount }})
-                    </button>
-                    <button @click="activeTaskTab = 'inprogress'"
-                            :class="[
-                              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
-                              activeTaskTab === 'inprogress'
-                                ? 'bg-yellow-500 text-white shadow'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-                            ]">
-                      In Progress ({{ (props.project.tasks || []).filter(t => t.status === 'In Progress').length }})
-                    </button>
-                    <button @click="activeTaskTab = 'completed'"
-                            :class="[
-                              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
-                              activeTaskTab === 'completed'
-                                ? 'bg-green-500 text-white shadow'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-                            ]">
-                      Completed ({{ (props.project.tasks || []).filter(t => t.status === 'Completed').length }})
-                    </button>
+              <!-- Tab Content Area -->
+              <div class="flex-1">
+                <div class="p-6">
+                  <!-- Tab Content (same as before) -->
+                  <!-- Overview content -->
+                  <div v-if="activeMainTab === 'overview'">
+                    <section class="mb-6">
+                      <h3 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Overview</h3>
+                      <p class="text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                        {{ props.project.description }}
+                      </p>
+                    </section>
                   </div>
 
-                  <div class="flex gap-2">
-                    <button v-if="canEditTasks" @click="openAddTaskModal" class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-4 py-2 rounded-lg text-sm">+ Add Task</button>
-                    <button v-if="canEditTasks" @click="openEditTaskModal" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm">Edit All Tasks</button>
-                  </div>
-                </div>
-
-                <!-- tasks list -->
-                <div class="space-y-4">
-                  <div v-for="task in filteredTasks" :key="task.id"
-                       class="border border-gray-200 dark:border-gray-700 p-4 rounded-lg hover:shadow transition bg-white dark:bg-gray-800">
-                    <div class="flex justify-between items-start">
-                      <div class="flex-1">
-                        <div class="flex items-center justify-between mb-2">
-                          <h4 class="font-medium text-gray-800 dark:text-gray-200">{{ task.title }}</h4>
-                          <span class="text-xs px-2 py-1 rounded capitalize"
-                                :class="{
-                                  'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200': task.status === 'Pending',
-                                  'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200': task.status === 'In Progress',
-                                  'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200': task.status === 'Completed'
-                                }">
-                            {{ task.status }}
-                          </span>
-                        </div>
-
-                        <p class="text-gray-600 dark:text-gray-400 text-sm mb-2">{{ task.description }}</p>
-
-                        <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                          <p><strong>Type:</strong> {{ task.task_type }} | <strong>Weight:</strong> {{ task.weight }}%</p>
-                          <p>
-                            <strong>Assigned to:</strong>
-                            <span v-if="task.developers?.length">{{ task.developers.map(d=>d.name).join(', ') }}</span>
-                            <span v-else class="text-gray-400">Not assigned</span>
-                          </p>
-                          <p v-if="isAssignedToTask(task)" class="text-green-600 dark:text-green-400">
-                            ✓ Assigned to you
-                          </p>
+                  <!-- Tasks Tab -->
+                  <div v-if="activeMainTab === 'tasks'" class="mb-8">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                      <!-- Task Subtabs -->
+                      <div class="w-full sm:w-auto">
+                        <div class="inline-flex flex-wrap gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 p-1 rounded-lg w-full sm:w-auto">
+                          <button @click="activeTaskTab = 'pending'"
+                                  :class="[
+                                    'flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors',
+                                    activeTaskTab === 'pending'
+                                      ? 'bg-blue-500 text-white shadow'
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+                                  ]">
+                            Pending ({{ pendingTasksCount }})
+                          </button>
+                          <button @click="activeTaskTab = 'inprogress'"
+                                  :class="[
+                                    'flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors',
+                                    activeTaskTab === 'inprogress'
+                                      ? 'bg-yellow-500 text-white shadow'
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+                                  ]">
+                            In Progress ({{ (props.project.tasks || []).filter(t => t.status === 'In Progress').length }})
+                          </button>
+                          <button @click="activeTaskTab = 'completed'"
+                                  :class="[
+                                    'flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors',
+                                    activeTaskTab === 'completed'
+                                      ? 'bg-green-500 text-white shadow'
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+                                  ]">
+                            Completed ({{ (props.project.tasks || []).filter(t => t.status === 'Completed').length }})
+                          </button>
                         </div>
                       </div>
 
-                      <div class="flex flex-col space-y-2 ml-4">
-                        <!-- Mark as Seen Button (For Pending tasks - assigned developers AND users with edit permission) -->
-                        <button v-if="task.status === 'Pending' && canMarkAsSeen && (isAssignedToTask(task) || canEditTasks)" 
-                                @click="markTaskAsSeen(task.id)"
-                                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
-                          Mark as Seen
+                      <div class="flex flex-wrap gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                        <button v-if="canEditTasks" @click="openAddTaskModal" class="flex-1 sm:flex-none bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-3 py-2 rounded-lg text-sm">
+                          <span class="hidden sm:inline">+ Add Task</span>
+                          <span class="sm:hidden">+ Add</span>
                         </button>
-
-                        <!-- Completion Toggle (For In Progress/Completed tasks - assigned developers AND users with edit permission) -->
-                        <div v-if="(task.status === 'In Progress' || task.status === 'Completed') && canToggleCompletion && (isAssignedToTask(task) || canEditTasks)"
-                             class="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded">
-                          <span class="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Complete:</span>
-                          <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" 
-                                   :checked="task.status === 'Completed'"
-                                   @change="toggleTaskCompletion(task.id, task.status)"
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
-                          </label>
-                        </div>
-
-                        <!-- Delete Button (Only for users with delete permissions) -->
-                        <button v-if="canDeleteTasks" 
-                                @click="deleteTask(task.id)" 
-                                class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
-                          Delete
+                        <button v-if="canEditTasks" @click="openEditTaskModal" class="flex-1 sm:flex-none bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg text-sm">
+                          <span class="hidden sm:inline">Edit All Tasks</span>
+                          <span class="sm:hidden">Edit All</span>
                         </button>
                       </div>
                     </div>
-                  </div>
 
-                  <p v-if="!filteredTasks.length" class="text-gray-500 dark:text-gray-400 text-center py-8">
-                    No tasks in {{ activeTaskTab }} status.
-                  </p>
-                </div>
-              </div>
+                    <!-- tasks list -->
+                    <div class="space-y-4">
+                      <div v-for="task in filteredTasks" :key="task.id"
+                           class="border border-gray-200 dark:border-gray-700 p-4 rounded-lg hover:shadow transition bg-white dark:bg-gray-800">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+                          <div class="flex-1">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                              <h4 class="font-medium text-gray-800 dark:text-gray-200">{{ task.title }}</h4>
+                              <span class="text-xs px-2 py-1 rounded capitalize self-start sm:self-center"
+                                    :class="{
+                                      'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200': task.status === 'Pending',
+                                      'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200': task.status === 'In Progress',
+                                      'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200': task.status === 'Completed'
+                                    }">
+                                {{ task.status }}
+                              </span>
+                            </div>
 
-              <!-- Activities Tab -->
-              <div v-if="activeMainTab === 'activities'" class="mb-8">
-                <!-- Activity Type Tabs -->
-                <div class="mb-6">
-                  <div class="inline-flex flex-wrap gap-2">
-                    <button @click="activeActivityTypeTab = ''"
-                            :class="[
-                              'px-4 py-2 rounded-lg font-medium text-sm transition-all',
-                              activeActivityTypeTab === ''
-                                ? 'bg-purple-500 text-white shadow'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            ]">
-                      All Types
-                    </button>
-                    <button v-for="type in activityTypes" :key="type.id"
-                            @click="activeActivityTypeTab = type.id"
-                            :class="[
-                              'px-4 py-2 rounded-lg font-medium text-sm transition-all',
-                              activeActivityTypeTab === type.id
-                                ? 'bg-purple-500 text-white shadow'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            ]">
-                      {{ type.name }}
-                    </button>
-                  </div>
-                </div>
+                            <p class="text-gray-600 dark:text-gray-400 text-sm mb-2">{{ task.description }}</p>
 
-                <!-- Enhanced Activity Status Tabs -->
-                <div class="flex justify-between items-center mb-6">
-                  <div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 p-1">
-                    <button @click="activeActivityStatusTab = 'pending'"
-                            :class="[
-                              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
-                              activeActivityStatusTab === 'pending'
-                                ? 'bg-blue-500 text-white shadow'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-                            ]">
-                      Pending ({{ pendingActivitiesCount }})
-                    </button>
-                    <button @click="activeActivityStatusTab = 'inprogress'"
-                            :class="[
-                              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
-                              activeActivityStatusTab === 'inprogress'
-                                ? 'bg-yellow-500 text-white shadow'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-                            ]">
-                      In Progress
-                    </button>
-                    <button @click="activeActivityStatusTab = 'completed'"
-                            :class="[
-                              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
-                              activeActivityStatusTab === 'completed'
-                                ? 'bg-green-500 text-white shadow'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-                            ]">
-                      Completed
-                    </button>
-                  </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                              <p><strong>Type:</strong> {{ task.task_type }} | <strong>Weight:</strong> {{ task.weight }}%</p>
+                              <p>
+                                <strong>Assigned to:</strong>
+                                <span v-if="task.developers?.length">{{ task.developers.map(d=>d.name).join(', ') }}</span>
+                                <span v-else class="text-gray-400">Not assigned</span>
+                              </p>
+                              <p v-if="isAssignedToTask(task)" class="text-green-600 dark:text-green-400">
+                                ✓ Assigned to you
+                              </p>
+                            </div>
+                          </div>
 
-                  <div class="flex gap-2">
-                    <button v-if="canCreateActivities" @click="openAddActivityModal" class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-4 py-2 rounded-lg text-sm">+ Add Activity</button>
-                  </div>
-                </div>
+                          <div class="flex flex-row md:flex-col flex-wrap gap-2 md:gap-2 md:ml-4 md:w-auto w-full">
+                            <button v-if="task.status === 'Pending' && canMarkAsSeen && (isAssignedToTask(task) || canEditTasks)" 
+                                    @click="markTaskAsSeen(task.id)"
+                                    class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
+                              <span class="hidden sm:inline">Mark as Seen</span>
+                              <span class="sm:hidden">Seen</span>
+                            </button>
 
-                <!-- Activities list -->
-                <div class="space-y-4">
-                  <div v-for="activity in filteredActivities" :key="activity.id"
-                       class="border border-gray-200 dark:border-gray-700 p-4 rounded-lg hover:shadow transition bg-white dark:bg-gray-800">
-                    <div class="flex justify-between items-start">
-                      <div class="flex-1">
-                        <div class="flex items-center justify-between mb-2">
-                          <h4 class="font-medium text-gray-800 dark:text-gray-200">{{ activity.title }}</h4>
-                          <div class="flex items-center gap-2">
-                            <span class="text-xs px-2 py-1 rounded bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
-                              {{ activityTypes.find(t => t.id === activity.activity_type_id)?.name || 'Uncategorized' }}
-                            </span>
-                            <span class="text-xs px-2 py-1 rounded capitalize"
-                                  :class="{
-                                    'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200': activity.status === 'Pending',
-                                    'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200': activity.status === 'In Progress',
-                                    'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200': activity.status === 'Completed'
-                                  }">
-                              {{ activity.status }}
-                            </span>
+                            <div v-if="(task.status === 'In Progress' || task.status === 'Completed') && canToggleCompletion && (isAssignedToTask(task) || canEditTasks)"
+                                 class="flex items-center justify-between md:justify-start space-x-2 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded flex-1 md:flex-none">
+                              <span class="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Complete:</span>
+                              <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" 
+                                       :checked="task.status === 'Completed'"
+                                       @change="toggleTaskCompletion(task.id, task.status)"
+                                       class="sr-only peer">
+                                <div class="w-9 h-5 md:w-11 md:h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 md:after:h-5 md:after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                              </label>
+                            </div>
+
+                            <button v-if="canDeleteTasks" 
+                                    @click="deleteTask(task.id)" 
+                                    class="flex-1 md:flex-none bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
+                              <span class="hidden sm:inline">Delete</span>
+                              <span class="sm:hidden">Delete</span>
+                            </button>
                           </div>
                         </div>
-
-                        <p class="text-gray-600 dark:text-gray-400 text-sm mb-2">{{ activity.description }}</p>
-
-                        <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                          <p><strong>Due Date:</strong> {{ activity.due_date ? new Date(activity.due_date).toLocaleDateString() : 'Not set' }}</p>
-                          <p>
-                            <strong>Assigned to:</strong>
-                            <span v-if="activity.developers?.length">
-                              {{ activity.developers.map(d => d.name).join(', ') }}
-                              <span v-if="activity.developers.some(d => d.pivot?.accepted)" class="text-green-600 dark:text-green-400 ml-1">
-                                ({{ activity.developers.filter(d => d.pivot?.accepted).length }}/{{ activity.developers.length }} seen)
-                              </span>
-                            </span>
-                            <span v-else class="text-gray-400">Not assigned</span>
-                          </p>
-                          <p v-if="isAssignedToActivity(activity)" class="text-green-600 dark:text-green-400">
-                            ✓ Assigned to you
-                            <span v-if="activity.developers?.find(d => d.id === user.id)?.pivot?.accepted" class="ml-1">
-                              (Seen)
-                            </span>
-                          </p>
-                        </div>
                       </div>
 
-                      <div class="flex flex-col space-y-2 ml-4">
-                        <!-- Edit Button (Permission-based) -->
-                        <button v-if="canEditActivity(activity)" 
-                                @click="openEditActivityModal(activity)"
-                                class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
-                          Edit
-                        </button>
-
-                        <!-- Mark as Seen Button (Permission-based) -->
-                        <button v-if="canMarkActivityAsSeen(activity)" 
-                                @click="markActivityAsSeen(activity.id)"
-                                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
-                          Mark as Seen
-                        </button>
-
-                        <!-- Completion Toggle (Permission-based) -->
-                        <div v-if="canToggleActivityCompletion(activity)"
-                             class="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded">
-                          <span class="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Complete:</span>
-                          <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" 
-                                   :checked="activity.status === 'Completed'"
-                                   @change="toggleActivityCompletion(activity.id, activity.status)"
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
-                          </label>
-                        </div>
-
-                        <!-- Delete Button (Permission-based) -->
-                        <button v-if="canDeleteActivity(activity)" 
-                                @click="deleteActivity(activity.id)" 
-                                class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p v-if="!filteredActivities.length" class="text-gray-500 dark:text-gray-400 text-center py-8">
-                    <span v-if="isAssignedDeveloper && hasAccepted">
-                      No activities assigned to you in {{ activeActivityStatusTab }} status{{ activeActivityTypeTab ? ` for ${activityTypes.find(t => t.id === activeActivityTypeTab)?.name || 'this type'}` : '' }}.
-                    </span>
-                    <span v-else>
-                      No activities in {{ activeActivityStatusTab }} status{{ activeActivityTypeTab ? ` for ${activityTypes.find(t => t.id === activeActivityTypeTab)?.name || 'this type'}` : '' }}.
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              <!-- Comments Tab -->
-              <div v-if="activeMainTab === 'comments'" class="mb-8">
-                <div class="flex justify-between items-center mb-6">
-                  <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Comments</h3>
-                  <div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 p-1">
-                    <button @click="activeCommentTab = 'mycomments'"
-                            :class="[
-                              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
-                              activeCommentTab === 'mycomments'
-                                ? 'bg-indigo-500 text-white shadow'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-                            ]">
-                      My Comments ({{ myCommentsCount }})
-                    </button>
-                    <button @click="activeCommentTab = 'new'"
-                            :class="[
-                              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
-                              activeCommentTab === 'new'
-                                ? 'bg-green-500 text-white shadow'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-                            ]">
-                      New ({{ newCommentsCount }})
-                    </button>
-                    <button @click="activeCommentTab = 'seen'"
-                            :class="[
-                              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
-                              activeCommentTab === 'seen'
-                                ? 'bg-gray-500 text-white shadow'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-                            ]">
-                      Seen ({{ seenCommentsCount }})
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Add comment form -->
-                <form @submit.prevent="addComment" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6 border dark:border-gray-700">
-                  <h4 class="font-medium mb-2 text-gray-800 dark:text-gray-200">Add a Comment</h4>
-                  <textarea v-model="newComment" placeholder="Write your comment..." 
-                            class="w-full border dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 rounded p-2 mb-3 resize-none"
-                            rows="3"></textarea>
-                  <div class="flex justify-between items-center">
-                    <div>
-                      <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Urgency will be auto-detected from keywords</p>
-                      <p class="text-xs text-gray-500 dark:text-gray-500">
-                        Keywords: "urgent", "immediately", "asap", "critical", "soon", "important", "issue"
+                      <p v-if="!filteredTasks.length" class="text-gray-500 dark:text-gray-400 text-center py-8">
+                        No tasks in {{ activeTaskTab }} status.
                       </p>
                     </div>
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Submit</button>
                   </div>
-                </form>
 
-                <!-- Comments list -->
-                <div ref="commentsContainer" class="max-h-96 overflow-y-auto border dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900">
-                  <div v-if="filteredComments.length" class="divide-y divide-gray-200 dark:divide-gray-700">
-                    <div v-for="comment in filteredComments" :key="comment.id" 
-                         :class="[
-                           'p-4 transition-all duration-200',
-                           comment.user?.id === user.id 
-                             ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500' 
-                             : (comment.seen_by?.includes(user.id) 
-                                ? 'bg-white dark:bg-gray-800' 
-                                : 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500')
-                         ]">
-                      <!-- Comment header -->
-                      <div class="flex justify-between items-start mb-3">
-                        <div class="flex items-center gap-3">
-                          <div>
-                            <p class="font-medium text-gray-800 dark:text-gray-100">{{ comment.user?.name }}</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">
-                              {{ new Date(comment.created_at).toLocaleString() }}
-                            </p>
+                  <!-- Activities Tab -->
+                  <div v-if="activeMainTab === 'activities'" class="mb-8">
+                    <!-- Activity Type Tabs -->
+                    <div class="mb-6">
+                      <div class="inline-flex flex-wrap gap-2">
+                        <button @click="activeActivityTypeTab = ''"
+                                :class="[
+                                  'px-3 py-2 text-sm rounded-lg font-medium transition-all',
+                                  activeActivityTypeTab === ''
+                                    ? 'bg-purple-500 text-white shadow'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                ]">
+                          All Types
+                        </button>
+                        <button v-for="type in activityTypes" :key="type.id"
+                                @click="activeActivityTypeTab = type.id"
+                                :class="[
+                                  'px-3 py-2 text-sm rounded-lg font-medium transition-all truncate',
+                                  activeActivityTypeTab === type.id
+                                    ? 'bg-purple-500 text-white shadow'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                ]">
+                          {{ type.name }}
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Activity Status Tabs -->
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                      <div class="w-full sm:w-auto">
+                        <div class="inline-flex flex-wrap gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 p-1 rounded-lg w-full sm:w-auto">
+                          <button @click="activeActivityStatusTab = 'pending'"
+                                  :class="[
+                                    'flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors',
+                                    activeActivityStatusTab === 'pending'
+                                      ? 'bg-blue-500 text-white shadow'
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+                                  ]">
+                            Pending ({{ pendingActivitiesCount }})
+                          </button>
+                          <button @click="activeActivityStatusTab = 'inprogress'"
+                                  :class="[
+                                    'flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors',
+                                    activeActivityStatusTab === 'inprogress'
+                                      ? 'bg-yellow-500 text-white shadow'
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+                                  ]">
+                            In Progress
+                          </button>
+                          <button @click="activeActivityStatusTab = 'completed'"
+                                  :class="[
+                                    'flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors',
+                                    activeActivityStatusTab === 'completed'
+                                      ? 'bg-green-500 text-white shadow'
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+                                  ]">
+                            Completed
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                        <button v-if="canCreateActivities" @click="openAddActivityModal" class="flex-1 sm:flex-none bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-3 py-2 rounded-lg text-sm">
+                          <span class="hidden sm:inline">+ Add Activity</span>
+                          <span class="sm:hidden">+ Add</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Activities list -->
+                    <div class="space-y-4">
+                      <div v-for="activity in filteredActivities" :key="activity.id"
+                           class="border border-gray-200 dark:border-gray-700 p-4 rounded-lg hover:shadow transition bg-white dark:bg-gray-800">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+                          <div class="flex-1">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                              <h4 class="font-medium text-gray-800 dark:text-gray-200">{{ activity.title }}</h4>
+                              <div class="flex items-center gap-2 self-start sm:self-center">
+                                <span class="text-xs px-2 py-1 rounded bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 truncate">
+                                  {{ activityTypes.find(t => t.id === activity.activity_type_id)?.name || 'Uncategorized' }}
+                                </span>
+                                <span class="text-xs px-2 py-1 rounded capitalize"
+                                      :class="{
+                                        'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200': activity.status === 'Pending',
+                                        'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200': activity.status === 'In Progress',
+                                        'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200': activity.status === 'Completed'
+                                      }">
+                                  {{ activity.status }}
+                                </span>
+                              </div>
+                            </div>
+
+                            <p class="text-gray-600 dark:text-gray-400 text-sm mb-2">{{ activity.description }}</p>
+
+                            <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                              <p><strong>Due Date:</strong> {{ activity.due_date ? new Date(activity.due_date).toLocaleDateString() : 'Not set' }}</p>
+                              <p>
+                                <strong>Assigned to:</strong>
+                                <span v-if="activity.developers?.length">
+                                  {{ activity.developers.map(d => d.name).join(', ') }}
+                                  <span v-if="activity.developers.some(d => d.pivot?.accepted)" class="text-green-600 dark:text-green-400 ml-1">
+                                    ({{ activity.developers.filter(d => d.pivot?.accepted).length }}/{{ activity.developers.length }} seen)
+                                  </span>
+                                </span>
+                                <span v-else class="text-gray-400">Not assigned</span>
+                              </p>
+                              <p v-if="isAssignedToActivity(activity)" class="text-green-600 dark:text-green-400">
+                                ✓ Assigned to you
+                                <span v-if="activity.developers?.find(d => d.id === user.id)?.pivot?.accepted" class="ml-1">
+                                  (Seen)
+                                </span>
+                              </p>
+                            </div>
                           </div>
-                          <!-- Urgency badge -->
-                          <span :class="[
-                            'px-2 py-1 text-xs rounded-full',
-                            comment.urgency === 'Critical' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' :
-                            comment.urgency === 'High' ? 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200' :
-                            'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                          ]">
-                            {{ comment.urgency }}
-                          </span>
-                        </div>
-                        
-                        <!-- Actions -->
-                        <div class="flex items-center gap-2">
-                          <!-- My Comments Tab: Edit and Delete buttons -->
-                          <template v-if="activeCommentTab === 'mycomments'">
-                            <button v-if="!comment.is_editing"
-                                    @click="startEditingComment(comment)"
-                                    class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-sm font-medium px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
-                              Edit
+
+                          <div class="flex flex-row md:flex-col flex-wrap gap-2 md:gap-2 md:ml-4 md:w-auto w-full">
+                            <button v-if="canEditActivity(activity)" 
+                                    @click="openEditActivityModal(activity)"
+                                    class="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
+                              <span class="hidden sm:inline">Edit</span>
+                              <span class="sm:hidden">Edit</span>
                             </button>
-                            <button v-if="comment.is_editing"
-                                    @click="saveEditedComment(comment)"
-                                    class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-sm font-medium px-3 py-1 bg-green-50 dark:bg-green-900/30 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors">
-                              Save
+
+                            <button v-if="canMarkActivityAsSeen(activity)" 
+                                    @click="markActivityAsSeen(activity.id)"
+                                    class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
+                              <span class="hidden sm:inline">Mark as Seen</span>
+                              <span class="sm:hidden">Seen</span>
                             </button>
-                            <button v-if="comment.is_editing"
-                                    @click="cancelEditingComment(comment)"
-                                    class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 text-sm font-medium px-3 py-1 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                              Cancel
+
+                            <div v-if="canToggleActivityCompletion(activity)"
+                                 class="flex items-center justify-between md:justify-start space-x-2 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded flex-1 md:flex-none">
+                              <span class="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Complete:</span>
+                              <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" 
+                                       :checked="activity.status === 'Completed'"
+                                       @change="toggleActivityCompletion(activity.id, activity.status)"
+                                       class="sr-only peer">
+                                <div class="w-9 h-5 md:w-11 md:h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 md:after:h-5 md:after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                              </label>
+                            </div>
+
+                            <button v-if="canDeleteActivity(activity)" 
+                                    @click="deleteActivity(activity.id)" 
+                                    class="flex-1 md:flex-none bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
+                              <span class="hidden sm:inline">Delete</span>
+                              <span class="sm:hidden">Delete</span>
                             </button>
-                            <button v-if="!comment.is_editing"
-                                    @click="deleteComment(comment.id)"
-                                    class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium px-3 py-1 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
-                              Delete
-                            </button>
-                          </template>
-                          
-                          <!-- New Tab: Mark as Seen button -->
-                          <button v-if="activeCommentTab === 'new' && !comment.seen_by?.includes(user.id) && comment.user?.id !== user.id"
-                                  @click="markCommentAsSeen(comment)"
-                                  class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
-                            Mark as Seen
-                          </button>
-                          
-                          <!-- Delete button (for project creator to delete any comment) -->
-                          <button v-if="props.project.created_by === user.id && comment.user?.id !== user.id"
-                                  @click="deleteComment(comment.id)"
-                                  class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium px-3 py-1 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
-                            Delete
-                          </button>
+                          </div>
                         </div>
                       </div>
-                      
-                      <!-- Comment body - Show edit textarea if editing -->
-                      <div v-if="comment.is_editing" class="mb-3">
-                        <textarea v-model="comment.edit_message" 
-                                  class="w-full border dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 rounded p-2 mb-2 resize-none"
-                                  rows="3"></textarea>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
-                          Urgency will be re-detected from updated text
-                        </p>
-                      </div>
-                      <p v-else class="text-gray-800 dark:text-gray-100 whitespace-pre-wrap">{{ comment.message }}</p>
-                      
-                      <!-- Seen by list - Show only for the comment creator (and filter out the creator) -->
-                      <div v-if="comment.user?.id === user.id && comment.seen_by && comment.seen_by.length > 1" 
-                           class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                          Seen by {{ comment.seen_by.length - 1 }} {{ comment.seen_by.length - 1 === 1 ? 'person' : 'people' }}:
-                        </p>
-                        <div class="flex flex-wrap gap-1">
-                          <span v-for="userId in comment.seen_by.filter(id => id !== user.id)" :key="userId"
-                                class="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
-                            {{ getDeveloperName(userId) }}
-                          </span>
+
+                      <p v-if="!filteredActivities.length" class="text-gray-500 dark:text-gray-400 text-center py-8">
+                        <span v-if="isAssignedDeveloper && hasAccepted">
+                          No activities assigned to you in {{ activeActivityStatusTab }} status{{ activeActivityTypeTab ? ` for ${activityTypes.find(t => t.id === activeActivityTypeTab)?.name || 'this type'}` : '' }}.
+                        </span>
+                        <span v-else>
+                          No activities in {{ activeActivityStatusTab }} status{{ activeActivityTypeTab ? ` for ${activityTypes.find(t => t.id === activeActivityTypeTab)?.name || 'this type'}` : '' }}.
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- Comments Tab -->
+                  <div v-if="activeMainTab === 'comments'" class="mb-8">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                      <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Comments</h3>
+                      <div class="w-full sm:w-auto">
+                        <div class="inline-flex flex-wrap gap-1 sm:gap-2 border border-gray-200 dark:border-gray-700 p-1 rounded-lg w-full sm:w-auto">
+                          <button @click="activeCommentTab = 'mycomments'"
+                                  :class="[
+                                    'flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors',
+                                    activeCommentTab === 'mycomments'
+                                      ? 'bg-indigo-500 text-white shadow'
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+                                  ]">
+                            My Comments ({{ myCommentsCount }})
+                          </button>
+                          <button @click="activeCommentTab = 'new'"
+                                  :class="[
+                                    'flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors',
+                                    activeCommentTab === 'new'
+                                      ? 'bg-green-500 text-white shadow'
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+                                  ]">
+                            New ({{ newCommentsCount }})
+                          </button>
+                          <button @click="activeCommentTab = 'seen'"
+                                  :class="[
+                                    'flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors',
+                                    activeCommentTab === 'seen'
+                                      ? 'bg-gray-500 text-white shadow'
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+                                  ]">
+                            Seen ({{ seenCommentsCount }})
+                          </button>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <!-- Empty state -->
-                  <div v-else class="p-8 text-center">
-                    <svg class="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-                    </svg>
-                    <p class="text-gray-500 dark:text-gray-400">
-                      {{
-                        activeCommentTab === 'mycomments' ? 'No comments from you yet.' :
-                        activeCommentTab === 'new' ? 'No new comments.' : 'No seen comments.'
-                      }}
-                    </p>
+
+                    <!-- Add comment form -->
+                    <form @submit.prevent="addComment" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6 border dark:border-gray-700">
+                      <h4 class="font-medium mb-2 text-gray-800 dark:text-gray-200">Add a Comment</h4>
+                      <textarea v-model="newComment" placeholder="Write your comment..." 
+                                class="w-full border dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 rounded p-2 mb-3 resize-none"
+                                rows="3"></textarea>
+                      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div>
+                          <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Urgency will be auto-detected from keywords</p>
+                          <p class="text-xs text-gray-500 dark:text-gray-500">
+                            Keywords: "urgent", "immediately", "asap", "critical", "soon", "important", "issue"
+                          </p>
+                        </div>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mt-2 sm:mt-0">Submit</button>
+                      </div>
+                    </form>
+
+                    <!-- Comments list -->
+                    <div ref="commentsContainer" class="max-h-96 overflow-y-auto border dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900">
+                      <div v-if="filteredComments.length" class="divide-y divide-gray-200 dark:divide-gray-700">
+                        <div v-for="comment in filteredComments" :key="comment.id" 
+                             :class="[
+                               'p-4 transition-all duration-200',
+                               comment.user?.id === user.id 
+                                 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500' 
+                                 : (comment.seen_by?.includes(user.id) 
+                                    ? 'bg-white dark:bg-gray-800' 
+                                    : 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500')
+                             ]">
+                          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
+                            <div class="flex items-start gap-3">
+                              <div>
+                                <p class="font-medium text-gray-800 dark:text-gray-100">{{ comment.user?.name }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                  {{ new Date(comment.created_at).toLocaleString() }}
+                                </p>
+                              </div>
+                              <span :class="[
+                                'px-2 py-1 text-xs rounded-full self-start',
+                                comment.urgency === 'Critical' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' :
+                                comment.urgency === 'High' ? 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200' :
+                                'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                              ]">
+                                {{ comment.urgency }}
+                              </span>
+                            </div>
+                            
+                            <div class="flex flex-wrap gap-2">
+                              <template v-if="activeCommentTab === 'mycomments'">
+                                <button v-if="!comment.is_editing"
+                                        @click="startEditingComment(comment)"
+                                        class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+                                  Edit
+                                </button>
+                                <button v-if="comment.is_editing"
+                                        @click="saveEditedComment(comment)"
+                                        class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 bg-green-50 dark:bg-green-900/30 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors">
+                                  Save
+                                </button>
+                                <button v-if="comment.is_editing"
+                                        @click="cancelEditingComment(comment)"
+                                        class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                  Cancel
+                                </button>
+                                <button v-if="!comment.is_editing"
+                                        @click="deleteComment(comment.id)"
+                                        class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+                                  Delete
+                                </button>
+                              </template>
+                              
+                              <button v-if="activeCommentTab === 'new' && !comment.seen_by?.includes(user.id) && comment.user?.id !== user.id"
+                                      @click="markCommentAsSeen(comment)"
+                                      class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
+                                <span class="hidden sm:inline">Mark as Seen</span>
+                                <span class="sm:hidden">Seen</span>
+                              </button>
+                              
+                              <button v-if="props.project.created_by === user.id && comment.user?.id !== user.id"
+                                      @click="deleteComment(comment.id)"
+                                      class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div v-if="comment.is_editing" class="mb-3">
+                            <textarea v-model="comment.edit_message" 
+                                      class="w-full border dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 rounded p-2 mb-2 resize-none"
+                                      rows="3"></textarea>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                              Urgency will be re-detected from updated text
+                            </p>
+                          </div>
+                          <p v-else class="text-gray-800 dark:text-gray-100 whitespace-pre-wrap">{{ comment.message }}</p>
+                          
+                          <div v-if="comment.user?.id === user.id && comment.seen_by && comment.seen_by.length > 1" 
+                               class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                              Seen by {{ comment.seen_by.length - 1 }} {{ comment.seen_by.length - 1 === 1 ? 'person' : 'people' }}:
+                            </p>
+                            <div class="flex flex-wrap gap-1">
+                              <span v-for="userId in comment.seen_by.filter(id => id !== user.id)" :key="userId"
+                                    class="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
+                                {{ getDeveloperName(userId) }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div v-else class="p-8 text-center">
+                        <svg class="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                        </svg>
+                        <p class="text-gray-500 dark:text-gray-400">
+                          {{
+                            activeCommentTab === 'mycomments' ? 'No comments from you yet.' :
+                            activeCommentTab === 'new' ? 'No new comments.' : 'No seen comments.'
+                          }}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1642,6 +1564,7 @@ const closeModals = () => {
           </div>
         </div>
 
+        
         <!-- Add Activity Modal -->
         <div v-if="showAddActivityModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1682,13 +1605,11 @@ const closeModals = () => {
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign Developers</label>
                 <div v-if="availableDevelopers.length" class="space-y-1 max-h-32 overflow-y-auto p-2 border rounded dark:border-gray-600">
-                  <!-- If user is a developer, only allow self-assignment -->
                   <div v-if="isAssignedDeveloper && hasAccepted && !canCreateActivities" class="flex items-center gap-2">
                     <input type="checkbox" :value="user.id" v-model="newActivity.developer_ids" 
                            class="rounded border-gray-300 dark:border-gray-600" />
                     <span class="dark:text-gray-300 text-sm">{{ user.name }} (You)</span>
                   </div>
-                  <!-- If user is admin/creator, show all developers -->
                   <div v-else v-for="dev in availableDevelopers" :key="dev.id" class="flex items-center gap-2">
                     <input type="checkbox" :value="dev.id" v-model="newActivity.developer_ids" 
                            class="rounded border-gray-300 dark:border-gray-600" />
@@ -1750,13 +1671,11 @@ const closeModals = () => {
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign Developers</label>
                 <div v-if="availableDevelopers.length" class="space-y-1 max-h-32 overflow-y-auto p-2 border rounded dark:border-gray-600">
-                  <!-- If user is a developer (not project creator), only allow self-assignment -->
                   <div v-if="isAssignedDeveloper && hasAccepted && props.project.created_by !== user.id" class="flex items-center gap-2">
                     <input type="checkbox" :value="user.id" v-model="editActivityForm.developer_ids" 
                            class="rounded border-gray-300 dark:border-gray-600" />
                     <span class="dark:text-gray-300 text-sm">{{ user.name }} (You)</span>
                   </div>
-                  <!-- If user is project creator or has create permission, show all developers -->
                   <div v-else v-for="dev in availableDevelopers" :key="dev.id" class="flex items-center gap-2">
                     <input type="checkbox" :value="dev.id" v-model="editActivityForm.developer_ids" 
                            class="rounded border-gray-300 dark:border-gray-600" />
@@ -1783,10 +1702,8 @@ const closeModals = () => {
           <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Add New Tasks</h3>
 
-            <!-- Combined list preview (existing + staged) -->
             <div class="mb-6">
               <div v-if="normalizedTasksForAdd.length" class="space-y-2 mb-3">
-                <!-- Staged Tasks -->
                 <div v-for="(t, i) in normalizedTasksForAdd.filter(t => t.source === 'staged')" 
                      :key="'staged-' + i" 
                      class="border rounded p-3 bg-blue-50 dark:bg-blue-900">
@@ -1823,7 +1740,6 @@ const closeModals = () => {
               </p>
             </div>
 
-            <!-- New task form -->
             <div class="border-t pt-4 mb-6">
               <h4 class="font-medium mb-3 text-gray-800 dark:text-gray-200">Add New Task</h4>
               <div class="space-y-4 bg-gray-50 dark:bg-gray-700 p-4 rounded">
@@ -1942,7 +1858,6 @@ const closeModals = () => {
                     </div>
                   </div>
 
-                  <!-- Edit Form (shown when editing this task) -->
                   <div v-if="editingTaskIndex === i" class="mt-4 p-4 bg-white dark:bg-gray-600 rounded border">
                     <h5 class="font-medium mb-3 dark:text-gray-200">Edit Task</h5>
                     <div class="space-y-3">
@@ -2062,5 +1977,9 @@ const closeModals = () => {
 </template>
 
 <style scoped>
-/* small adjustments can go here */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 </style>

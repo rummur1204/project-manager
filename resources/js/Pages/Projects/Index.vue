@@ -1,20 +1,47 @@
 <script setup>
 import { Link, usePage, router } from '@inertiajs/vue3'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { Edit, Trash2, ClipboardList, PlusCircle, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { 
+  Edit, 
+  Trash2, 
+  ClipboardList, 
+  PlusCircle, 
+  ChevronLeft, 
+  ChevronRight 
+} from 'lucide-vue-next'
 import Layout from '../Dashboard/Layout.vue'
 
-const { props } = usePage()
+// Use reactive page props
+const pageProps = computed(() => usePage().props)
+const props = pageProps
 
-const projects = ref(props.projects?.data || [])
-const filteredProjects = ref([...props.projects?.data || []])
+// Projects data from props - watch for changes
+const projects = ref(props.value.projects?.data || [])
+const filteredProjects = ref([...props.value.projects?.data || []])
 const currentSearchQuery = ref('')
 const searchActive = ref(false)
 
 // Pagination properties
-const currentPage = ref(props.projects?.current_page || 1)
-const lastPage = ref(props.projects?.last_page || 1)
-const perPage = ref(props.projects?.per_page || 6) // 2 rows × 3 cards = 6 projects per page
+const currentPage = ref(props.value.projects?.current_page || 1)
+const lastPage = ref(props.value.projects?.last_page || 1)
+const totalProjects = ref(props.value.projects?.total || 0)
+const perPage = ref(props.value.projects?.per_page || 6)
+
+// Watch for props changes (when Inertia updates the page)
+watch(() => props.value.projects, (newProjects) => {
+  if (newProjects) {
+    projects.value = newProjects.data || []
+    filteredProjects.value = [...projects.value]
+    currentPage.value = newProjects.current_page || 1
+    lastPage.value = newProjects.last_page || 1
+    totalProjects.value = newProjects.total || 0
+    perPage.value = newProjects.per_page || 6
+    
+    // Clear search when props change (new page loaded)
+    currentSearchQuery.value = ''
+    searchActive.value = false
+  }
+}, { deep: true })
 
 // Weighted progress calculation
 const calculateWeightedProgress = (tasks) => {
@@ -30,43 +57,42 @@ const calculateWeightedProgress = (tasks) => {
 const updateProjectProgress = (projectId, newProgress, updatedTasks) => {
   const projectIndex = projects.value.findIndex(p => p.id === projectId)
   if (projectIndex !== -1) {
-    // Update the project's tasks
     if (updatedTasks) {
       projects.value[projectIndex].tasks = updatedTasks
     }
     
-    // Update filtered projects too
     const filteredIndex = filteredProjects.value.findIndex(p => p.id === projectId)
-    if (filteredIndex !== -1) {
-      if (updatedTasks) {
-        filteredProjects.value[filteredIndex].tasks = updatedTasks
-      }
+    if (filteredIndex !== -1 && updatedTasks) {
+      filteredProjects.value[filteredIndex].tasks = updatedTasks
     }
     
-    // Trigger Vue reactivity
     projects.value = [...projects.value]
     filteredProjects.value = [...filteredProjects.value]
   }
 }
 
-// Listen for progress updates from task pages
+// Listen for progress updates
 const handleTaskProgressUpdate = (event) => {
   const { projectId, progress, tasks } = event.detail
   updateProjectProgress(projectId, progress, tasks)
 }
 
-const can = computed(() => props.auth?.can || {})
-const user = computed(() => props.auth.user)
+// Check user permissions
+const can = computed(() => props.value.auth?.user?.permissions || [])
+const user = computed(() => props.value.auth.user)
 
-const userCan = (perm) => !!can.value[perm]
+// FIXED: userCan function
+const userCan = (perm) => {
+  return Array.isArray(can.value) && can.value.includes(perm)
+}
 
 // Developer helpers
 const isAssignedDeveloper = (project) => {
-  return project.developers?.some(d => d.id === user.value.id) ?? false
+  return project.developers?.some(d => d.id === user.value?.id) ?? false
 }
 
 const hasAccepted = (project) => {
-  const dev = project.developers?.find(d => d.id === user.value.id)
+  const dev = project.developers?.find(d => d.id === user.value?.id)
   return dev?.pivot?.accepted ?? false
 }
 
@@ -78,7 +104,7 @@ const acceptProject = (projectId) => {
     onSuccess: () => {
       const project = projects.value.find(p => p.id === projectId)
       if (project) {
-        const dev = project.developers.find(d => d.id === user.value.id)
+        const dev = project.developers.find(d => d.id === user.value?.id)
         if (dev) dev.pivot.accepted = true
       }
     }
@@ -92,7 +118,7 @@ const declineProject = (projectId) => {
     onSuccess: () => {
       const project = projects.value.find(p => p.id === projectId)
       if (project) {
-        const dev = project.developers.find(d => d.id === user.value.id)
+        const dev = project.developers.find(d => d.id === user.value?.id)
         if (dev) dev.pivot.accepted = false
       }
     }
@@ -105,7 +131,7 @@ const deleteProject = (id) => {
   }
 }
 
-// Get project status with auto-completion at 100% progress
+// Get project status
 const getProjectStatus = (project) => {
   const progress = calculateWeightedProgress(project.tasks)
   if (progress >= 100) {
@@ -170,7 +196,7 @@ const handlePageSearch = (event) => {
   searchActive.value = !!event.detail.query.trim()
   
   if (!currentSearchQuery.value.trim()) {
-    filteredProjects.value = [...props.projects?.data || []]
+    filteredProjects.value = [...projects.value]
     return
   }
   
@@ -193,16 +219,18 @@ const clearSearchFilter = () => {
   filteredProjects.value = [...projects.value]
 }
 
-// Pagination functions
+// Pagination function
 const goToPage = (page) => {
   if (page < 1 || page > lastPage.value) return
-  router.get(`/projects?page=${page}`, {}, {
+  
+  // Use Inertia to visit the page with proper query parameters
+  router.visit('/projects', {
+    data: { page },
     preserveScroll: true,
-    preserveState: true,
+    preserveState: false, // Set to false to ensure full page reload
+    replace: false,
     onSuccess: () => {
-      currentPage.value = props.projects?.current_page || 1
-      projects.value = props.projects?.data || []
-      filteredProjects.value = [...projects.value]
+      // The page will be updated via Inertia, no need to manually update
     }
   })
 }
@@ -212,44 +240,35 @@ const getPageNumbers = () => {
   const maxVisiblePages = 5
   
   if (lastPage.value <= maxVisiblePages) {
-    // Show all pages
     for (let i = 1; i <= lastPage.value; i++) {
       pages.push(i)
     }
   } else {
-    // Always show first page
     pages.push(1)
     
-    // Calculate start and end
     let start = Math.max(2, currentPage.value - 1)
     let end = Math.min(lastPage.value - 1, currentPage.value + 1)
     
-    // Adjust if we're near the beginning
     if (currentPage.value <= 3) {
       end = 4
     }
     
-    // Adjust if we're near the end
     if (currentPage.value >= lastPage.value - 2) {
       start = lastPage.value - 3
     }
     
-    // Add ellipsis after first page if needed
     if (start > 2) {
       pages.push('...')
     }
     
-    // Add middle pages
     for (let i = start; i <= end; i++) {
       pages.push(i)
     }
     
-    // Add ellipsis before last page if needed
     if (end < lastPage.value - 1) {
       pages.push('...')
     }
     
-    // Always show last page
     if (lastPage.value > 1) {
       pages.push(lastPage.value)
     }
@@ -273,7 +292,7 @@ onUnmounted(() => {
 
 <template>
   <Layout>
-    <div class="mt-6">
+    <div class="mt-3 mx-auto w-full px-4 md:px-6 lg:px-8 max-w-7xl">
       <!-- Header with New Project Button aligned right -->
       <div class="flex justify-end items-center mb-8">
         <Link
@@ -293,7 +312,7 @@ onUnmounted(() => {
               🔍 Searching for: "<span class="font-bold">{{ currentSearchQuery }}</span>"
             </span>
             <span class="text-xs text-teal-600 dark:text-teal-400">
-              ({{ filteredProjects.length }} of {{ props.projects?.total || 0 }} projects)
+              ({{ filteredProjects.length }} results found)
             </span>
           </div>
           <button
@@ -305,122 +324,124 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Projects Grid - Always 2 rows × 3 columns = 6 cards -->
-      <div v-if="filteredProjects.length" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[600px]">
-        <div
-          v-for="project in filteredProjects"
-          :key="project.id"
-          class="rounded-xl shadow hover:shadow-lg transition-all duration-300 p-5 flex flex-col justify-between cursor-pointer border-2 relative transform hover:-translate-y-1"
-          :class="[getStatusColor(project).bg, getStatusColor(project).border]"
-          @click="router.visit(`/projects/${project.id}`)"
-        >
-          <!-- Auto-completed ribbon -->
-          <div 
-            v-if="calculateWeightedProgress(project.tasks) >= 100 && getProjectStatus(project) === 'Completed'"
-            class="absolute -top-2 -right-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded shadow-lg"
-          >
-            AUTO-COMPLETED
-          </div>
-          
-          <div>
-            <!-- Status Badge -->
-            <div class="mb-3">
-              <span 
-                class="text-xs font-semibold px-3 py-1 rounded-full"
-                :class="getStatusColor(project).statusBg"
-              >
-                {{ getProjectStatus(project) }}
-                <span v-if="calculateWeightedProgress(project.tasks) >= 100 && getProjectStatus(project) === 'Completed'">
-                  🎯
-                </span>
-              </span>
-            </div>
-            
-            <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100 truncate">
-              {{ project.title }}
-            </h2>
-            
-            <p class="text-sm mt-2" :class="getStatusColor(project).text">
-              <span class="font-medium">Progress:</span> {{ calculateWeightedProgress(project.tasks) }}%
-            </p>
-
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Due: {{ project.due_date || 'N/A' }}
-            </p>
-
-            <!-- Weighted Progress Bar -->
-            <div class="mt-4">
-              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  class="h-2 rounded-full transition-all"
-                  :style="{ width: Math.min(calculateWeightedProgress(project.tasks), 100) + '%' }"
-                  :class="getStatusColor(project).progress"
-                ></div>
-              </div>
-              <p class="text-xs text-right mt-1" :class="getStatusColor(project).text">
-                {{ calculateWeightedProgress(project.tasks) }}%
-                <span v-if="calculateWeightedProgress(project.tasks) >= 100" class="ml-1">✓</span>
-              </p>
-            </div>
-          </div>
-
-          <!-- Buttons -->
+      <!-- Projects Grid - Consistent height for all pages -->
+      <div class="min-h-[600px]">
+        <div v-if="filteredProjects.length" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <div
-            v-if="userCan('edit projects') || userCan('delete projects') || userCan('view projects') || isAssignedDeveloper(project)"
-            class="flex justify-between items-center mt-5 pt-3 border-t"
-            :class="getStatusColor(project).border"
-            @click.stop
+            v-for="project in filteredProjects"
+            :key="project.id"
+            class="rounded-xl shadow hover:shadow-lg transition-all duration-300 p-5 flex flex-col justify-between cursor-pointer border-2 relative transform hover:-translate-y-1 h-[280px]"
+            :class="[getStatusColor(project).bg, getStatusColor(project).border]"
+            @click="router.visit(`/projects/${project.id}`)"
           >
-            <div class="flex gap-2">
-              <!-- Accept / Decline - Only show if project is not completed -->
-              <template v-if="getProjectStatus(project) !== 'Completed' && isAssignedDeveloper(project) && !hasAccepted(project)">
-                <button
-                  @click="acceptProject(project.id)"
-                  class="flex items-center gap-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm px-3 py-1.5 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-200"
+            <!-- Auto-completed ribbon -->
+            <div 
+              v-if="calculateWeightedProgress(project.tasks) >= 100 && getProjectStatus(project) === 'Completed'"
+              class="absolute -top-2 -right-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded shadow-lg"
+            >
+              AUTO-COMPLETED
+            </div>
+            
+            <div>
+              <!-- Status Badge -->
+              <div class="mb-3">
+                <span 
+                  class="text-xs font-semibold px-3 py-1 rounded-full"
+                  :class="getStatusColor(project).statusBg"
                 >
-                  Accept
-                </button>
+                  {{ getProjectStatus(project) }}
+                  <span v-if="calculateWeightedProgress(project.tasks) >= 100 && getProjectStatus(project) === 'Completed'">
+                    🎯
+                  </span>
+                </span>
+              </div>
+              
+              <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100 truncate">
+                {{ project.title }}
+              </h2>
+              
+              <p class="text-sm mt-2" :class="getStatusColor(project).text">
+                <span class="font-medium">Progress:</span> {{ calculateWeightedProgress(project.tasks) }}%
+              </p>
+
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Due: {{ project.due_date || 'N/A' }}
+              </p>
+
+              <!-- Weighted Progress Bar -->
+              <div class="mt-4">
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div
+                    class="h-2 rounded-full transition-all"
+                    :style="{ width: Math.min(calculateWeightedProgress(project.tasks), 100) + '%' }"
+                    :class="getStatusColor(project).progress"
+                  ></div>
+                </div>
+                <p class="text-xs text-right mt-1" :class="getStatusColor(project).text">
+                  {{ calculateWeightedProgress(project.tasks) }}%
+                  <span v-if="calculateWeightedProgress(project.tasks) >= 100" class="ml-1">✓</span>
+                </p>
+              </div>
+            </div>
+
+            <!-- Buttons -->
+            <div
+              v-if="userCan('edit projects') || userCan('delete projects') || userCan('view projects') || isAssignedDeveloper(project)"
+              class="flex justify-between items-center mt-5 pt-3 border-t"
+              :class="getStatusColor(project).border"
+              @click.stop
+            >
+              <div class="flex gap-2">
+                <!-- Accept / Decline - Only show if project is not completed -->
+                <template v-if="getProjectStatus(project) !== 'Completed' && isAssignedDeveloper(project) && !hasAccepted(project)">
+                  <button
+                    @click="acceptProject(project.id)"
+                    class="flex items-center gap-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm px-3 py-1.5 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-200"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    @click="declineProject(project.id)"
+                    class="flex items-center gap-1 bg-gradient-to-r from-red-600 to-pink-600 text-white text-sm px-3 py-1.5 rounded-md hover:from-red-700 hover:to-pink-700 transition-all duration-200"
+                  >
+                    Decline
+                  </button>
+                </template>
+
+                <!-- Edit button - Only show for non-completed projects if user can edit -->
+                <Link
+                  v-if="userCan('edit projects') && getProjectStatus(project) !== 'Completed'"
+                  :href="`/projects/${project.id}/edit`"
+                  class="flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm px-3 py-1.5 rounded-md hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
+                >
+                  <Edit class="w-4 h-4" /> Edit
+                </Link>
+
+                <!-- For completed projects, show a disabled or different styled edit button -->
+                <Link
+                  v-if="userCan('edit projects') && getProjectStatus(project) === 'Completed'"
+                  :href="`/projects/${project.id}/edit`"
+                  class="flex items-center gap-1 bg-gradient-to-r from-gray-400 to-gray-500 text-white text-sm px-3 py-1.5 rounded-md hover:from-gray-500 hover:to-gray-600 transition-all duration-200"
+                  title="Edit completed project"
+                >
+                  <Edit class="w-4 h-4" /> Review
+                </Link>
+
                 <button
-                  @click="declineProject(project.id)"
+                  v-if="userCan('delete projects')"
+                  @click="deleteProject(project.id)"
                   class="flex items-center gap-1 bg-gradient-to-r from-red-600 to-pink-600 text-white text-sm px-3 py-1.5 rounded-md hover:from-red-700 hover:to-pink-700 transition-all duration-200"
                 >
-                  Decline
+                  <Trash2 class="w-4 h-4" /> Delete
                 </button>
-              </template>
-
-              <!-- Edit button - Only show for non-completed projects if user can edit -->
-              <Link
-                v-if="userCan('edit projects') && getProjectStatus(project) !== 'Completed'"
-                :href="`/projects/${project.id}/edit`"
-                class="flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm px-3 py-1.5 rounded-md hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
-              >
-                <Edit class="w-4 h-4" /> Edit
-              </Link>
-
-              <!-- For completed projects, show a disabled or different styled edit button -->
-              <Link
-                v-if="userCan('edit projects') && getProjectStatus(project) === 'Completed'"
-                :href="`/projects/${project.id}/edit`"
-                class="flex items-center gap-1 bg-gradient-to-r from-gray-400 to-gray-500 text-white text-sm px-3 py-1.5 rounded-md hover:from-gray-500 hover:to-gray-600 transition-all duration-200"
-                title="Edit completed project"
-              >
-                <Edit class="w-4 h-4" /> Review
-              </Link>
-
-              <button
-                v-if="userCan('delete projects')"
-                @click="deleteProject(project.id)"
-                class="flex items-center gap-1 bg-gradient-to-r from-red-600 to-pink-600 text-white text-sm px-3 py-1.5 rounded-md hover:from-red-700 hover:to-pink-700 transition-all duration-200"
-              >
-                <Trash2 class="w-4 h-4" /> Delete
-              </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Pagination Controls -->
-      <div v-if="props.projects?.last_page > 1 && !searchActive" class="mt-8 flex justify-center items-center space-x-4">
+      <div v-if="lastPage > 1 && !searchActive" class="mt-8 flex justify-center items-center space-x-4">
         <!-- Previous Button -->
         <button
           @click="goToPage(currentPage - 1)"
@@ -459,8 +480,8 @@ onUnmounted(() => {
       </div>
 
       <!-- Page Info -->
-      <div v-if="props.projects?.total > 0 && !searchActive" class="mt-4 text-center text-sm text-teal-600 dark:text-teal-400">
-        Showing {{ props.projects?.from || 0 }} to {{ props.projects?.to || 0 }} of {{ props.projects?.total || 0 }} projects
+      <div v-if="totalProjects > 0 && !searchActive" class="mt-4 text-center text-sm text-teal-600 dark:text-teal-400">
+        Page {{ currentPage }} of {{ lastPage }} • Showing {{ (currentPage - 1) * perPage + 1 }} to {{ Math.min(currentPage * perPage, totalProjects) }} of {{ totalProjects }} projects
       </div>
 
       <!-- No Results Message -->

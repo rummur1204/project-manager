@@ -1,3 +1,3 @@
 <template>
-    <img src="https://test.omishtujoy.com/wp-content/uploads/2024/12/White-2-1-1536x376.png" alt="Company Logo">
+    <img src="https://tse2.mm.bing.net/th/id/OIP.KjNeiFwKrH5nCPb_MtehQAHaEK?cb=ucfimg2&ucfimg=1&rs=1&pid=ImgDetMain&o=7&rm=3" alt="Company Logo">
 </template>
